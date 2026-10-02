@@ -2,7 +2,7 @@ process SRA_PREFETCH {
 
     tag "${meta.id} (${accession})"
 
-    container 'ncbi/sra-tools:3.4.1'
+    container 'quay.io/biocontainers/sra-tools:3.4.1'
 
     input:
     tuple val(meta), val(accession)
