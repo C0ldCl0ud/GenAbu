@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+
+    "properties": {
+        "input": {
+            "type": "string",
+            "format": "file-path",
+            "exists": true,
+            "pattern": "^\\S+\\.csv$",
+            "schema": "assets/schema_input.json",
+            "description": "CSV samplesheet containing sample and FASTQ file information."
+        }
+    },
+
+    "required": [
+        "input"
+    ]
+}

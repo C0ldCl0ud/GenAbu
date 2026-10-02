@@ -1,16 +1,8 @@
-process TEST_RUN {
-
-    output:
-    stdout
-
-    script:
-    """
-    echo "Test run successfully"
-    """
-}
+include { validateParameters } from 'plugin/nf-schema'
 
 workflow {
 
-    TEST_RUN().view()
+    validateParameters()
 
+    log.info "Input validation successful"
 }

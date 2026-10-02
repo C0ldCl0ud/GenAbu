@@ -7,6 +7,7 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 - [[Tested]]  
   
 ## Pipeline - Draft  
+- [[Input Validation]]
 - Start A: Download fastq-files via accession codes  
 - Start B: Provide fastq-files  
 - Run quality control (QC)  

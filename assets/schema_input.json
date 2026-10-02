@@ -1,0 +1,47 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Pipeline samplesheet",
+    "description": "Schema for FASTQ input samplesheet.",
+
+    "type": "array",
+
+    "items": {
+        "type": "object",
+
+        "properties": {
+            "sample": {
+                "type": "string",
+                "minLength": 1,
+                "meta": "id"
+            },
+
+            "fastq_1": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fastq|fq)\\.gz$"
+            },
+
+            "fastq_2": {
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "format": "file-path",
+                        "exists": true,
+                        "pattern": "^\\S+\\.(fastq|fq)\\.gz$"
+                    },
+                    {
+                        "type": "string",
+                        "maxLength": 0
+                    }
+                ]
+            }
+        },
+
+        "required": [
+            "sample",
+            "fastq_1",
+            "fastq_2"
+        ]
+    }
+}
