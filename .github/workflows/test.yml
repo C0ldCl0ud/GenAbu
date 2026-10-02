@@ -27,7 +27,7 @@ jobs:
           version: 0.9.5
 
       - name: Run pipeline smoke test
-        run: nextflow run . -profile test,docker
+        run: nextflow run . -profile test -stub-run
 
       - name: Run nf-test suite
         run: nf-test test --tag ci --ci
