@@ -1,10 +1,9 @@
 /*
  * Pipeline-level smoke tests.
  *
- * These tests verify top-level wiring only:
- *   - FASTQ input is accepted and does not invoke SRA_PREFETCH.
- *   - SRA input is routed into SRA_PREFETCH.
- *
+ * These tests verify top-level wiring:
+ *   - FASTQ input is routed directly into FALCO.
+ *   - SRA input is prepared through SRA_INPUT and then routed into FALCO.
  */
 
 def rootDir = new File(".").canonicalFile
@@ -60,7 +59,7 @@ nextflow_pipeline {
     options "-stub-run"
 
 
-    test("Should run from FASTQ input without invoking SRA_PREFETCH") {
+    test("Should route FASTQ input directly into FALCO") {
 
         when {
             params {
@@ -72,13 +71,14 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // FASTQ input emits an empty SRA channel, so no process should run yet.
-            assert workflow.trace.tasks().size() == 0
+            // FASTQ input bypasses SRA_INPUT and runs only FALCO.
+            assert workflow.trace.tasks().size() == 1
+            assert workflow.trace.succeeded().size() == 1
         }
     }
 
 
-    test("Should route SRA input through SRA_INPUT") {
+    test("Should route SRA input through SRA_INPUT and FALCO") {
 
         when {
             params {
@@ -90,9 +90,11 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // One SRA_PREFETCH task + one FASTERQ_DUMP task.
-            assert workflow.trace.tasks().size() == 2
-            assert workflow.trace.succeeded().size() == 2
+            // One SRA_PREFETCH task
+            // + one FASTERQ_DUMP task
+            // + one FALCO task.
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
         }
     }
 }
