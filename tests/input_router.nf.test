@@ -1,0 +1,291 @@
+/*
+ * Tests for the INPUT_ROUTER subworkflow.
+ *
+ * Supported top-level input types:
+ *
+ *   .csv  -> samplesheet input
+ *   .pdf  -> research paper input
+ *
+ * The router only determines the top-level input type.
+ *
+ * CSV structure is validated later by INPUT_VALIDATOR.
+ * PDF content is handled later by PAPER_INPUT.
+ */
+
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-input-router"
+)
+
+fixtureDir.mkdirs()
+
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+def makeFile = { String filename, String content ->
+    def file = new File(fixtureDir, filename)
+    file.text = content
+    file
+}
+
+
+/*
+ * Generate a tiny but structurally valid PDF.
+ *
+ * This avoids committing a binary PDF fixture just for the router test.
+ */
+def makeMinimalPdf = { String filename ->
+
+    def file = new File(fixtureDir, filename)
+
+    def header = "%PDF-1.4\n"
+
+    def streamContent =
+        "BT /F1 12 Tf 20 100 Td (GenAbu test paper) Tj ET\n"
+
+    def objects = [
+        """1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+""",
+
+        """2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+""",
+
+        """3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+""",
+
+        """4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+""",
+
+        """5 0 obj
+<< /Length ${streamContent.getBytes("UTF-8").length} >>
+stream
+${streamContent}endstream
+endobj
+"""
+    ]
+
+    def pdf = new StringBuilder(header)
+    def offsets = []
+
+    objects.each { obj ->
+        offsets << pdf.toString().getBytes("UTF-8").length
+        pdf.append(obj)
+    }
+
+    def xrefOffset = pdf.toString().getBytes("UTF-8").length
+
+    pdf.append("xref\n")
+    pdf.append("0 ${objects.size() + 1}\n")
+    pdf.append("0000000000 65535 f \n")
+
+    offsets.each { offset ->
+        pdf.append(String.format("%010d 00000 n \n", offset))
+    }
+
+    pdf.append("""trailer
+<< /Size ${objects.size() + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+""")
+
+    file.setText(pdf.toString(), "UTF-8")
+
+    file
+}
+
+
+// =============================================================================
+// Fixtures
+// =============================================================================
+
+def validCsv = makeFile(
+    "valid.csv",
+    """\
+sample,accession
+sample1,SRR6357070
+""".stripIndent()
+)
+
+def validPdf = makeMinimalPdf(
+    "paper.pdf"
+)
+
+def unsupportedFile = makeFile(
+    "input.txt",
+    "This is not a supported GenAbu input type.\n"
+)
+
+def fakePdf = makeFile(
+    "fake.pdf",
+    "This file has a PDF extension but is not actually a PDF.\n"
+)
+
+def emptyPdf = makeFile(
+    "empty.pdf",
+    ""
+)
+
+def nonexistentFile = new File(
+    fixtureDir,
+    "does_not_exist.pdf"
+)
+
+
+// =============================================================================
+// nf-test specification
+// =============================================================================
+
+nextflow_workflow {
+
+    name "Input router"
+    tag "ci"
+
+    script "../subworkflows/local/input_router/main.nf"
+    workflow "INPUT_ROUTER"
+
+
+    // =========================================================================
+    // CSV routing
+    // =========================================================================
+
+    test("Should route CSV input to the samplesheet output") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${validCsv.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            assert workflow.out.samplesheet.size() == 1
+            assert workflow.out.paper.size() == 0
+        }
+    }
+
+
+    // =========================================================================
+    // PDF routing
+    // =========================================================================
+
+    test("Should route PDF input to the paper output") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${validPdf.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            assert workflow.out.paper.size() == 1
+            assert workflow.out.samplesheet.size() == 0
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid input types
+    // =========================================================================
+
+    test("Should reject an unsupported input extension") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${unsupportedFile.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a PDF extension without a PDF signature") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${fakePdf.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an empty PDF") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${emptyPdf.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a nonexistent input file") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${nonexistentFile.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a directory as input") {
+
+        when {
+            workflow {
+                """
+                input[0] = "${fixtureDir.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+}
