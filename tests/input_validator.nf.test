@@ -1,0 +1,849 @@
+/*
+ * Tests for the INPUT_VALIDATOR subworkflow.
+ *
+ * Supported input types:
+ *
+ * FASTQ:
+ *   Required columns:
+ *     sample
+ *     fastq_1
+ *     fastq_2
+ *
+ * SRA:
+ *   Required columns:
+ *     sample
+ *     accession
+ *
+ * Additional metadata columns are allowed.
+ * Column order does not matter.
+ *
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fastq1 = new File(
+    rootDir,
+    "tests/data/SRR6357070_1.fastq.gz"
+).canonicalPath
+
+def fastq2 = new File(
+    rootDir,
+    "tests/data/SRR6357070_2.fastq.gz"
+).canonicalPath
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-input-validation"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeCsv = { String filename, String content ->
+    def file = new File(fixtureDir, filename)
+    file.text = content.stripIndent()
+    file
+}
+
+
+// =============================================================================
+// Valid FASTQ fixtures
+// =============================================================================
+
+def validPaired = makeCsv(
+    "valid_paired.csv",
+    """\
+sample,fastq_1,fastq_2
+sample1,${fastq1},${fastq2}
+"""
+)
+
+def validSingle = makeCsv(
+    "valid_single.csv",
+    """\
+sample,fastq_1,fastq_2
+sample1,${fastq1},
+"""
+)
+
+def validFastqExtraColumns = makeCsv(
+    "valid_fastq_extra_columns.csv",
+    """\
+sample,fastq_1,fastq_2,condition,batch
+sample1,${fastq1},${fastq2},treated,batch1
+"""
+)
+
+def validFastqReorderedColumns = makeCsv(
+    "valid_fastq_reordered_columns.csv",
+    """\
+fastq_2,sample,fastq_1
+${fastq2},sample1,${fastq1}
+"""
+)
+
+
+// =============================================================================
+// Invalid FASTQ fixtures
+// =============================================================================
+
+def missingSampleColumn = makeCsv(
+    "invalid_missing_sample_column.csv",
+    """\
+fastq_1,fastq_2
+${fastq1},${fastq2}
+"""
+)
+
+def missingFastq1Column = makeCsv(
+    "invalid_missing_fastq1_column.csv",
+    """\
+sample,fastq_2
+sample1,${fastq2}
+"""
+)
+
+def missingFastq2Column = makeCsv(
+    "invalid_missing_fastq2_column.csv",
+    """\
+sample,fastq_1
+sample1,${fastq1}
+"""
+)
+
+def emptySample = makeCsv(
+    "invalid_empty_sample.csv",
+    """\
+sample,fastq_1,fastq_2
+,${fastq1},${fastq2}
+"""
+)
+
+def emptyFastq1 = makeCsv(
+    "invalid_empty_fastq1.csv",
+    """\
+sample,fastq_1,fastq_2
+sample1,,${fastq2}
+"""
+)
+
+def sampleWithWhitespace = makeCsv(
+    "invalid_sample_whitespace.csv",
+    """\
+sample,fastq_1,fastq_2
+sample one,${fastq1},${fastq2}
+"""
+)
+
+def nonexistentFastqPath = new File(
+    fixtureDir,
+    "does_not_exist.fastq.gz"
+).canonicalPath
+
+def nonexistentFastq = makeCsv(
+    "invalid_nonexistent_fastq.csv",
+    """\
+sample,fastq_1,fastq_2
+sample1,${nonexistentFastqPath},${fastq2}
+"""
+)
+
+def wrongExtensionFile = new File(
+    fixtureDir,
+    "reads.txt"
+)
+
+wrongExtensionFile.text = "This file deliberately has the wrong extension.\n"
+
+def invalidFastqExtension = makeCsv(
+    "invalid_fastq_extension.csv",
+    """\
+sample,fastq_1,fastq_2
+sample1,${wrongExtensionFile.canonicalPath},${fastq2}
+"""
+)
+
+
+// =============================================================================
+// Valid SRA fixtures
+// =============================================================================
+
+def validSrr = makeCsv(
+    "valid_srr.csv",
+    """\
+sample,accession
+sample1,SRR6357070
+"""
+)
+
+def validErr = makeCsv(
+    "valid_err.csv",
+    """\
+sample,accession
+sample1,ERR123456
+"""
+)
+
+def validDrr = makeCsv(
+    "valid_drr.csv",
+    """\
+sample,accession
+sample1,DRR123456
+"""
+)
+
+def validSraExtraColumns = makeCsv(
+    "valid_sra_extra_columns.csv",
+    """\
+sample,accession,condition,batch
+sample1,SRR6357070,treated,batch1
+"""
+)
+
+def validSraReorderedColumns = makeCsv(
+    "valid_sra_reordered_columns.csv",
+    """\
+accession,condition,sample
+SRR6357070,treated,sample1
+"""
+)
+
+
+// =============================================================================
+// Invalid SRA fixtures
+// =============================================================================
+
+def sraMissingSampleColumn = makeCsv(
+    "invalid_sra_missing_sample_column.csv",
+    """\
+accession
+SRR6357070
+"""
+)
+
+def sraMissingAccessionColumn = makeCsv(
+    "invalid_sra_missing_accession_column.csv",
+    """\
+sample
+sample1
+"""
+)
+
+def emptyAccession = makeCsv(
+    "invalid_sra_empty_accession.csv",
+    """\
+sample,accession
+sample1,
+"""
+)
+
+def unsupportedSraAccession = makeCsv(
+    "invalid_sra_accession_type.csv",
+    """\
+sample,accession
+sample1,SRP123456
+"""
+)
+
+def malformedSraAccession = makeCsv(
+    "invalid_sra_malformed_accession.csv",
+    """\
+sample,accession
+sample1,SRRABC123
+"""
+)
+
+def sraSampleWithWhitespace = makeCsv(
+    "invalid_sra_sample_whitespace.csv",
+    """\
+sample,accession
+sample one,SRR6357070
+"""
+)
+
+
+// =============================================================================
+// Input-type detection fixtures
+// =============================================================================
+
+def ambiguousInput = makeCsv(
+    "invalid_ambiguous_input.csv",
+    """\
+sample,accession,fastq_1,fastq_2
+sample1,SRR6357070,${fastq1},${fastq2}
+"""
+)
+
+def unknownInput = makeCsv(
+    "invalid_unknown_input.csv",
+    """\
+sample,url
+sample1,https://example.org/reads.fastq.gz
+"""
+)
+
+def nonexistentSamplesheet = new File(
+    fixtureDir,
+    "samplesheet_does_not_exist.csv"
+)
+
+
+// =============================================================================
+// nf-test specification
+// =============================================================================
+
+nextflow_workflow {
+
+    name "Input validator"
+    tag "ci"
+
+    script "../subworkflows/local/input_validator/main.nf"
+    workflow "INPUT_VALIDATOR"
+
+
+    // =========================================================================
+    // Valid FASTQ inputs
+    // =========================================================================
+
+    test("Should accept a valid paired-end FASTQ samplesheet") {
+
+        when {
+            params {
+                input = validPaired.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validPaired.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.out.fastq.size() == 1
+            assert workflow.out.sra.size() == 0
+        }
+    }
+
+
+    test("Should accept a valid single-end FASTQ samplesheet") {
+
+        when {
+            params {
+                input = validSingle.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validSingle.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.out.fastq.size() == 1
+            assert workflow.out.sra.size() == 0
+        }
+    }
+
+
+    test("Should accept additional columns in a FASTQ samplesheet") {
+
+        when {
+            params {
+                input = validFastqExtraColumns.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validFastqExtraColumns.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq.size() == 1
+            assert workflow.out.sra.size() == 0
+        }
+    }
+
+
+    test("Should accept reordered FASTQ columns") {
+
+        when {
+            params {
+                input = validFastqReorderedColumns.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validFastqReorderedColumns.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq.size() == 1
+            assert workflow.out.sra.size() == 0
+        }
+    }
+
+
+    // =========================================================================
+    // Valid SRA inputs
+    // =========================================================================
+
+    test("Should accept a valid SRR accession") {
+
+        when {
+            params {
+                input = validSrr.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validSrr.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.out.sra.size() == 1
+            assert workflow.out.fastq.size() == 0
+        }
+    }
+
+
+    test("Should accept a valid ERR accession") {
+
+        when {
+            params {
+                input = validErr.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validErr.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.sra.size() == 1
+            assert workflow.out.fastq.size() == 0
+        }
+    }
+
+
+    test("Should accept a valid DRR accession") {
+
+        when {
+            params {
+                input = validDrr.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validDrr.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.sra.size() == 1
+            assert workflow.out.fastq.size() == 0
+        }
+    }
+
+
+    test("Should accept additional columns in an SRA samplesheet") {
+
+        when {
+            params {
+                input = validSraExtraColumns.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validSraExtraColumns.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.sra.size() == 1
+            assert workflow.out.fastq.size() == 0
+        }
+    }
+
+
+    test("Should accept reordered SRA columns") {
+
+        when {
+            params {
+                input = validSraReorderedColumns.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${validSraReorderedColumns.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.sra.size() == 1
+            assert workflow.out.fastq.size() == 0
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid FASTQ structure
+    // =========================================================================
+
+    test("Should reject a FASTQ samplesheet without the sample column") {
+
+        when {
+            params {
+                input = missingSampleColumn.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${missingSampleColumn.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a FASTQ samplesheet without the fastq_1 column") {
+
+        when {
+            params {
+                input = missingFastq1Column.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${missingFastq1Column.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a FASTQ samplesheet without the fastq_2 column") {
+
+        when {
+            params {
+                input = missingFastq2Column.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${missingFastq2Column.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid FASTQ values
+    // =========================================================================
+
+    test("Should reject an empty sample ID in a FASTQ samplesheet") {
+
+        when {
+            params {
+                input = emptySample.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${emptySample.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an empty fastq_1 value") {
+
+        when {
+            params {
+                input = emptyFastq1.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${emptyFastq1.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject whitespace in FASTQ sample IDs") {
+
+        when {
+            params {
+                input = sampleWithWhitespace.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${sampleWithWhitespace.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a nonexistent FASTQ file") {
+
+        when {
+            params {
+                input = nonexistentFastq.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${nonexistentFastq.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a FASTQ file with an invalid extension") {
+
+        when {
+            params {
+                input = invalidFastqExtension.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${invalidFastqExtension.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid SRA structure
+    // =========================================================================
+
+    test("Should reject an SRA samplesheet without the sample column") {
+
+        when {
+            params {
+                input = sraMissingSampleColumn.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${sraMissingSampleColumn.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an SRA samplesheet without the accession column") {
+
+        when {
+            params {
+                input = sraMissingAccessionColumn.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${sraMissingAccessionColumn.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid SRA values
+    // =========================================================================
+
+    test("Should reject an empty SRA accession") {
+
+        when {
+            params {
+                input = emptyAccession.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${emptyAccession.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an unsupported SRA accession type") {
+
+        when {
+            params {
+                input = unsupportedSraAccession.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${unsupportedSraAccession.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a malformed SRA accession") {
+
+        when {
+            params {
+                input = malformedSraAccession.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${malformedSraAccession.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject whitespace in SRA sample IDs") {
+
+        when {
+            params {
+                input = sraSampleWithWhitespace.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${sraSampleWithWhitespace.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Input type detection
+    // =========================================================================
+
+    test("Should reject a samplesheet containing both FASTQ and SRA columns") {
+
+        when {
+            params {
+                input = ambiguousInput.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${ambiguousInput.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a samplesheet with an unknown input format") {
+
+        when {
+            params {
+                input = unknownInput.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${unknownInput.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid input file
+    // =========================================================================
+
+    test("Should reject a nonexistent samplesheet") {
+
+        when {
+            params {
+                input = nonexistentSamplesheet.canonicalPath
+            }
+            workflow {
+                """
+                input[0] = "${nonexistentSamplesheet.canonicalPath}"
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+}
