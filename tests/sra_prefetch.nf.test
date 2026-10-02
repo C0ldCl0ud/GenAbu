@@ -25,17 +25,25 @@ nextflow_process {
             assert process.trace.tasks().size() == 1
 
             with(process.out.sra) {
+
                 assert size() == 1
 
                 def result = get(0)
 
-                assert result[0].id == 'sample1'
+                def meta      = result[0]
+                def accession = result[1]
+                def sraDir    = new File(result[2].toString())
 
-                def sraDir = new File(result[1].toString())
+                assert meta.id == 'sample1'
+                assert accession == 'SRR6357070'
 
                 assert sraDir.name == 'SRR6357070'
                 assert sraDir.isDirectory()
-                assert new File(sraDir, 'SRR6357070.sra').exists()
+
+                assert new File(
+                    sraDir,
+                    'SRR6357070.sra'
+                ).exists()
             }
         }
     }

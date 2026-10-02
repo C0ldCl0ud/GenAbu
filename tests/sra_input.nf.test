@@ -1,0 +1,215 @@
+/*
+ * Subworkflow-level tests for SRA_INPUT.
+ *
+ * SRA_INPUT:
+ *   SRA_PREFETCH -> FASTERQ_DUMP -> normalize to [meta, reads]
+ *
+ * Normal CI uses stub mode only.
+ */
+
+nextflow_workflow {
+
+    name "Test SRA_INPUT"
+    tag "ci"
+
+    script "../subworkflows/local/sra_input/main.nf"
+    workflow "SRA_INPUT"
+
+    options "-stub-run"
+
+
+    test("Should normalize paired-end SRA reads") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [id: 'sample1'],
+                        'SRR6357070'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.trace.tasks().size() == 2
+
+            with(workflow.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def meta   = result[0]
+                def reads  = result[1]
+
+                assert meta.id == 'sample1'
+                assert meta.single_end == false
+
+                assert reads.size() == 2
+
+                def filenames = reads.collect {
+                    new File(it.toString()).name
+                }.sort()
+
+                assert filenames == [
+                    'SRR6357070_1.fastq.gz',
+                    'SRR6357070_2.fastq.gz'
+                ]
+            }
+        }
+    }
+
+
+    test("Should normalize single-end SRA reads") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            stub_single_end: true
+                        ],
+                        'SRR1111111'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.trace.tasks().size() == 2
+
+            with(workflow.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def meta   = result[0]
+                def reads  = result[1]
+
+                assert meta.id == 'sample1'
+                assert meta.single_end == true
+
+                assert reads.size() == 1
+                assert new File(reads[0].toString()).name == 'SRR1111111.fastq.gz'
+            }
+        }
+    }
+
+
+    test("Should preserve metadata and add single_end") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            condition: 'treated',
+                            batch: 'batch1'
+                        ],
+                        'SRR6357070'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            with(workflow.out.reads) {
+
+                assert size() == 1
+
+                def meta = get(0)[0]
+
+                assert meta.id == 'sample1'
+                assert meta.condition == 'treated'
+                assert meta.batch == 'batch1'
+                assert meta.single_end == false
+            }
+        }
+    }
+
+
+    test("Should process multiple SRA accessions independently") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [id: 'sample1'],
+                        'SRR6357070'
+                    ),
+                    tuple(
+                        [
+                            id: 'sample2',
+                            stub_single_end: true
+                        ],
+                        'SRR1111111'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // 2 x SRA_PREFETCH + 2 x FASTERQ_DUMP
+            assert workflow.trace.tasks().size() == 4
+            assert workflow.out.reads.size() == 2
+
+            def results = workflow.out.reads.collect { result ->
+                [
+                    id: result[0].id,
+                    single_end: result[0].single_end,
+                    read_count: result[1].size()
+                ]
+            }.sort { it.id }
+
+            assert results[0] == [
+                id: 'sample1',
+                single_end: false,
+                read_count: 2
+            ]
+
+            assert results[1] == [
+                id: 'sample2',
+                single_end: true,
+                read_count: 1
+            ]
+        }
+    }
+
+
+    test("Should handle an empty SRA input channel") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.empty()
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.trace.tasks().size() == 0
+            assert workflow.out.reads.size() == 0
+        }
+    }
+}

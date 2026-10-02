@@ -78,7 +78,7 @@ nextflow_pipeline {
     }
 
 
-    test("Should route SRA input into stubbed SRA_PREFETCH") {
+    test("Should route SRA input through SRA_INPUT") {
 
         when {
             params {
@@ -90,9 +90,9 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // The SRA input should trigger exactly one stubbed SRA_PREFETCH task.
-            assert workflow.trace.tasks().size() == 1
-            assert workflow.trace.succeeded().size() == 1
+            // One SRA_PREFETCH task + one FASTERQ_DUMP task.
+            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.succeeded().size() == 2
         }
     }
 }
