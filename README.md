@@ -17,6 +17,7 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 ## Tools
 - nf-schema
 - SRA Toolkit 3.4.1
+- Falco 2.0.2
 
 ## Input
 - Start A: samplesheet

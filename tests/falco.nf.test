@@ -1,0 +1,322 @@
+/*
+ * Process-level tests for FALCO.
+ *
+ * These tests use Nextflow stub mode:
+ *   - no Falco installation is required
+ *   - no real QC analysis is performed
+ *   - no network access is required
+ *
+ * Contract:
+ *   input  = tuple(meta, [1 or 2 FASTQ files])
+ *   output = Falco data, HTML report, and summary files
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-falco"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeFastq = { String filename ->
+    def file = new File(fixtureDir, filename)
+    file.text = """\
+@read1
+ACGT
++
+IIII
+""".stripIndent()
+    file
+}
+
+
+def singleRead = makeFastq("single.fastq.gz")
+
+def pairedRead1 = makeFastq("paired_R1.fastq.gz")
+def pairedRead2 = makeFastq("paired_R2.fastq.gz")
+
+def thirdRead = makeFastq("unexpected_R3.fastq.gz")
+
+
+nextflow_process {
+
+    name "Test FALCO"
+    tag "ci"
+
+    script "../modules/local/falco/main.nf"
+    process "FALCO"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Paired-end input
+    // =========================================================================
+
+    test("Should create separate Falco reports for paired-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file('${pairedRead1.canonicalPath}', checkIfExists: true),
+                            file('${pairedRead2.canonicalPath}', checkIfExists: true)
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def files  = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert result[0].id == 'sample1'
+                assert files.size() == 2
+
+                def filenames = files.collect {
+                    new File(it.toString()).name
+                }.sort()
+
+                assert filenames == [
+                    'sample1_R1_fastqc_data.txt',
+                    'sample1_R2_fastqc_data.txt'
+                ]
+            }
+
+            with(process.out.html) {
+
+                assert size() == 1
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.collect {
+                    new File(it.toString()).name
+                }.sort() == [
+                    'sample1_R1_fastqc_report.html',
+                    'sample1_R2_fastqc_report.html'
+                ]
+            }
+
+            with(process.out.summary) {
+
+                assert size() == 1
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.collect {
+                    new File(it.toString()).name
+                }.sort() == [
+                    'sample1_R1_summary.txt',
+                    'sample1_R2_summary.txt'
+                ]
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Single-end input
+    // =========================================================================
+
+    test("Should create one Falco report set for single-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: true
+                        ],
+                        [
+                            file('${singleRead.canonicalPath}', checkIfExists: true)
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def files  = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert result[0].id == 'sample1'
+                assert files.size() == 1
+                assert new File(files[0].toString()).name ==
+                    'sample1_fastqc_data.txt'
+            }
+
+            with(process.out.html) {
+
+                def result = get(0)
+                def files  = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.size() == 1
+                assert new File(files[0].toString()).name ==
+                    'sample1_fastqc_report.html'
+            }
+
+            with(process.out.summary) {
+
+                def result = get(0)
+                def files  = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.size() == 1
+                assert new File(files[0].toString()).name ==
+                    'sample1_summary.txt'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Metadata
+    // =========================================================================
+
+    test("Should preserve sample metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false,
+                            condition: 'treated',
+                            batch: 'batch1'
+                        ],
+                        [
+                            file('${pairedRead1.canonicalPath}', checkIfExists: true),
+                            file('${pairedRead2.canonicalPath}', checkIfExists: true)
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def meta = get(0)[0]
+
+                assert meta.id == 'sample1'
+                assert meta.single_end == false
+                assert meta.condition == 'treated'
+                assert meta.batch == 'batch1'
+            }
+
+            with(process.out.html) {
+                assert get(0)[0].condition == 'treated'
+            }
+
+            with(process.out.summary) {
+                assert get(0)[0].batch == 'batch1'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid input contract
+    // =========================================================================
+
+    test("Should reject more than two FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file('${pairedRead1.canonicalPath}', checkIfExists: true),
+                            file('${pairedRead2.canonicalPath}', checkIfExists: true),
+                            file('${thirdRead.canonicalPath}', checkIfExists: true)
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+
+
+    test("Should reject a single_end flag inconsistent with the read count") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: true
+                        ],
+                        [
+                            file('${pairedRead1.canonicalPath}', checkIfExists: true),
+                            file('${pairedRead2.canonicalPath}', checkIfExists: true)
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+}
