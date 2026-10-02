@@ -1,0 +1,30 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Pipeline samplesheet SRA",
+    "description": "Schema for SRA input samplesheet.",
+
+    "type": "array",
+
+    "items": {
+        "type": "object",
+
+        "properties": {
+            "sample": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^\\S+$",
+                "meta": "id"
+            },
+
+            "accession": {
+                "type": "string",
+                "pattern": "^(SRR|ERR|DRR)[0-9]+$"
+            }
+        },
+
+        "required": [
+            "sample",
+            "accession"
+        ]
+    }
+}

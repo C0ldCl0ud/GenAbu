@@ -1,6 +1,22 @@
 /*
  * Pipeline-level tests for input validation.
  *
+ * Supported input types:
+ *
+ * FASTQ:
+ *   Required columns:
+ *     sample
+ *     fastq_1
+ *     fastq_2
+ *
+ * SRA:
+ *   Required columns:
+ *     sample
+ *     accession
+ *
+ * Additional metadata columns are allowed.
+ * Column order does not matter.
+ *
  * Test FASTQ files:
  *   tests/data/SRR6357070_1.fastq.gz
  *   tests/data/SRR6357070_2.fastq.gz
@@ -8,6 +24,7 @@
  * Samplesheets are generated below with absolute paths because nf-test
  * executes pipelines from an isolated .nf-test working directory.
  */
+
 
 // -----------------------------------------------------------------------------
 // Test fixture setup
@@ -25,10 +42,7 @@ def fastq2 = new File(
     "tests/data/SRR6357070_2.fastq.gz"
 ).canonicalPath
 
-/*
- * Put generated test input files inside .nf-test so that they are not
- * committed to Git.
- */
+
 def fixtureDir = new File(
     rootDir,
     ".nf-test/generated-input-validation"
@@ -37,8 +51,13 @@ def fixtureDir = new File(
 fixtureDir.mkdirs()
 
 
+// =============================================================================
+// Valid FASTQ fixtures
+// =============================================================================
+
+
 // -----------------------------------------------------------------------------
-// Valid paired-end samplesheet
+// Valid paired-end FASTQ
 // -----------------------------------------------------------------------------
 
 def validPaired = new File(
@@ -53,7 +72,7 @@ sample1,${fastq1},${fastq2}
 
 
 // -----------------------------------------------------------------------------
-// Valid single-end samplesheet
+// Valid single-end FASTQ
 // -----------------------------------------------------------------------------
 
 def validSingle = new File(
@@ -65,6 +84,41 @@ validSingle.text = """\
 sample,fastq_1,fastq_2
 sample1,${fastq1},
 """.stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid FASTQ with additional metadata columns
+// -----------------------------------------------------------------------------
+
+def validFastqExtraColumns = new File(
+    fixtureDir,
+    "valid_fastq_extra_columns.csv"
+)
+
+validFastqExtraColumns.text = """\
+sample,fastq_1,fastq_2,condition,batch
+sample1,${fastq1},${fastq2},treated,batch1
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid FASTQ with reordered required columns
+// -----------------------------------------------------------------------------
+
+def validFastqReorderedColumns = new File(
+    fixtureDir,
+    "valid_fastq_reordered_columns.csv"
+)
+
+validFastqReorderedColumns.text = """\
+fastq_2,sample,fastq_1
+${fastq2},sample1,${fastq1}
+""".stripIndent()
+
+
+// =============================================================================
+// Invalid FASTQ fixtures
+// =============================================================================
 
 
 // -----------------------------------------------------------------------------
@@ -98,7 +152,22 @@ sample1,${fastq2}
 
 
 // -----------------------------------------------------------------------------
-// Invalid: sample value empty
+// Invalid: fastq_2 column missing
+// -----------------------------------------------------------------------------
+
+def missingFastq2Column = new File(
+    fixtureDir,
+    "invalid_missing_fastq2_column.csv"
+)
+
+missingFastq2Column.text = """\
+sample,fastq_1
+sample1,${fastq1}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: empty sample ID
 // -----------------------------------------------------------------------------
 
 def emptySample = new File(
@@ -113,7 +182,7 @@ sample,fastq_1,fastq_2
 
 
 // -----------------------------------------------------------------------------
-// Invalid: fastq_1 value empty
+// Invalid: empty fastq_1
 // -----------------------------------------------------------------------------
 
 def emptyFastq1 = new File(
@@ -129,12 +198,6 @@ sample1,,${fastq2}
 
 // -----------------------------------------------------------------------------
 // Invalid: sample ID contains whitespace
-//
-// This test will only pass once the schema rejects whitespace in sample IDs,
-// e.g. with:
-//
-//     "pattern": "^\\\\S+$"
-//
 // -----------------------------------------------------------------------------
 
 def sampleWithWhitespace = new File(
@@ -169,10 +232,7 @@ sample1,${nonexistentFastqPath},${fastq2}
 
 
 // -----------------------------------------------------------------------------
-// Invalid: existing file has wrong extension
-//
-// We deliberately create the file so that this test checks the extension
-// rule and NOT file existence.
+// Invalid: FASTQ has wrong extension
 // -----------------------------------------------------------------------------
 
 def wrongExtensionFile = new File(
@@ -193,24 +253,219 @@ sample1,${wrongExtensionFile.canonicalPath},${fastq2}
 """.stripIndent()
 
 
+// =============================================================================
+// Valid SRA fixtures
+// =============================================================================
+
+
 // -----------------------------------------------------------------------------
-// Invalid: fastq_2 column does not exist
+// Valid SRR accession
 // -----------------------------------------------------------------------------
 
-def missingFastq2Column = new File(
+def validSrr = new File(
     fixtureDir,
-    "invalid_missing_fastq2_column.csv"
+    "valid_srr.csv"
 )
 
-missingFastq2Column.text = """\
-sample,fastq_1
-sample1,${fastq1}
+validSrr.text = """\
+sample,accession
+sample1,SRR6357070
 """.stripIndent()
 
 
 // -----------------------------------------------------------------------------
-// nf-test specification
+// Valid ERR accession
 // -----------------------------------------------------------------------------
+
+def validErr = new File(
+    fixtureDir,
+    "valid_err.csv"
+)
+
+validErr.text = """\
+sample,accession
+sample1,ERR123456
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid DRR accession
+// -----------------------------------------------------------------------------
+
+def validDrr = new File(
+    fixtureDir,
+    "valid_drr.csv"
+)
+
+validDrr.text = """\
+sample,accession
+sample1,DRR123456
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid SRA with additional metadata columns
+// -----------------------------------------------------------------------------
+
+def validSraExtraColumns = new File(
+    fixtureDir,
+    "valid_sra_extra_columns.csv"
+)
+
+validSraExtraColumns.text = """\
+sample,accession,condition,batch
+sample1,SRR6357070,treated,batch1
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid SRA with reordered required columns
+// -----------------------------------------------------------------------------
+
+def validSraReorderedColumns = new File(
+    fixtureDir,
+    "valid_sra_reordered_columns.csv"
+)
+
+validSraReorderedColumns.text = """\
+accession,condition,sample
+SRR6357070,treated,sample1
+""".stripIndent()
+
+
+// =============================================================================
+// Invalid SRA fixtures
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// Invalid: SRA sample column missing
+// -----------------------------------------------------------------------------
+
+def sraMissingSampleColumn = new File(
+    fixtureDir,
+    "invalid_sra_missing_sample_column.csv"
+)
+
+sraMissingSampleColumn.text = """\
+accession
+SRR6357070
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: accession column missing
+// -----------------------------------------------------------------------------
+
+def sraMissingAccessionColumn = new File(
+    fixtureDir,
+    "invalid_sra_missing_accession_column.csv"
+)
+
+sraMissingAccessionColumn.text = """\
+sample
+sample1
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: accession empty
+// -----------------------------------------------------------------------------
+
+def emptyAccession = new File(
+    fixtureDir,
+    "invalid_sra_empty_accession.csv"
+)
+
+emptyAccession.text = """\
+sample,accession
+sample1,
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: unsupported SRA accession type
+// -----------------------------------------------------------------------------
+
+def unsupportedSraAccession = new File(
+    fixtureDir,
+    "invalid_sra_accession_type.csv"
+)
+
+unsupportedSraAccession.text = """\
+sample,accession
+sample1,SRP123456
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: malformed SRA accession
+// -----------------------------------------------------------------------------
+
+def malformedSraAccession = new File(
+    fixtureDir,
+    "invalid_sra_malformed_accession.csv"
+)
+
+malformedSraAccession.text = """\
+sample,accession
+sample1,SRRABC123
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: whitespace in SRA sample ID
+// -----------------------------------------------------------------------------
+
+def sraSampleWithWhitespace = new File(
+    fixtureDir,
+    "invalid_sra_sample_whitespace.csv"
+)
+
+sraSampleWithWhitespace.text = """\
+sample,accession
+sample one,SRR6357070
+""".stripIndent()
+
+
+// =============================================================================
+// Input type detection fixtures
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// Invalid: both FASTQ and SRA input columns present
+// -----------------------------------------------------------------------------
+
+def ambiguousInput = new File(
+    fixtureDir,
+    "invalid_ambiguous_input.csv"
+)
+
+ambiguousInput.text = """\
+sample,accession,fastq_1,fastq_2
+sample1,SRR6357070,${fastq1},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: unknown input type
+// -----------------------------------------------------------------------------
+
+def unknownInput = new File(
+    fixtureDir,
+    "invalid_unknown_input.csv"
+)
+
+unknownInput.text = """\
+sample,url
+sample1,https://example.org/reads.fastq.gz
+""".stripIndent()
+
+
+// =============================================================================
+// nf-test specification
+// =============================================================================
 
 nextflow_pipeline {
 
@@ -219,11 +474,11 @@ nextflow_pipeline {
     script "../main.nf"
 
 
-    // -------------------------------------------------------------------------
-    // Valid inputs
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Valid FASTQ inputs
+    // =========================================================================
 
-    test("Should accept a valid paired-end samplesheet") {
+    test("Should accept a valid paired-end FASTQ samplesheet") {
 
         when {
             params {
@@ -238,7 +493,7 @@ nextflow_pipeline {
     }
 
 
-    test("Should accept a valid single-end samplesheet") {
+    test("Should accept a valid single-end FASTQ samplesheet") {
 
         when {
             params {
@@ -253,11 +508,120 @@ nextflow_pipeline {
     }
 
 
-    // -------------------------------------------------------------------------
-    // Invalid samplesheet structure
-    // -------------------------------------------------------------------------
+    test("Should accept additional columns in a FASTQ samplesheet") {
 
-    test("Should reject a samplesheet without the sample column") {
+        when {
+            params {
+                input = validFastqExtraColumns.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept reordered FASTQ columns") {
+
+        when {
+            params {
+                input = validFastqReorderedColumns.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    // =========================================================================
+    // Valid SRA inputs
+    // =========================================================================
+
+    test("Should accept a valid SRR accession") {
+
+        when {
+            params {
+                input = validSrr.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept a valid ERR accession") {
+
+        when {
+            params {
+                input = validErr.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept a valid DRR accession") {
+
+        when {
+            params {
+                input = validDrr.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept additional columns in an SRA samplesheet") {
+
+        when {
+            params {
+                input = validSraExtraColumns.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept reordered SRA columns") {
+
+        when {
+            params {
+                input = validSraReorderedColumns.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid FASTQ structure
+    // =========================================================================
+
+    test("Should reject a FASTQ samplesheet without the sample column") {
 
         when {
             params {
@@ -271,7 +635,7 @@ nextflow_pipeline {
     }
 
 
-    test("Should reject a samplesheet without the fastq_1 column") {
+    test("Should reject a FASTQ samplesheet without the fastq_1 column") {
 
         when {
             params {
@@ -284,7 +648,8 @@ nextflow_pipeline {
         }
     }
 
-    test("Should reject a samplesheet without the fastq_2 column") {
+
+    test("Should reject a FASTQ samplesheet without the fastq_2 column") {
 
         when {
             params {
@@ -298,11 +663,11 @@ nextflow_pipeline {
     }
 
 
-    // -------------------------------------------------------------------------
-    // Invalid field values
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Invalid FASTQ values
+    // =========================================================================
 
-    test("Should reject an empty sample ID") {
+    test("Should reject an empty sample ID in a FASTQ samplesheet") {
 
         when {
             params {
@@ -330,7 +695,7 @@ nextflow_pipeline {
     }
 
 
-    test("Should reject whitespace in sample IDs") {
+    test("Should reject whitespace in FASTQ sample IDs") {
 
         when {
             params {
@@ -343,10 +708,6 @@ nextflow_pipeline {
         }
     }
 
-
-    // -------------------------------------------------------------------------
-    // Invalid files
-    // -------------------------------------------------------------------------
 
     test("Should reject a nonexistent FASTQ file") {
 
@@ -375,6 +736,134 @@ nextflow_pipeline {
         }
     }
 
+
+    // =========================================================================
+    // Invalid SRA structure
+    // =========================================================================
+
+    test("Should reject an SRA samplesheet without the sample column") {
+
+        when {
+            params {
+                input = sraMissingSampleColumn.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an SRA samplesheet without the accession column") {
+
+        when {
+            params {
+                input = sraMissingAccessionColumn.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid SRA values
+    // =========================================================================
+
+    test("Should reject an empty SRA accession") {
+
+        when {
+            params {
+                input = emptyAccession.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an unsupported SRA accession type") {
+
+        when {
+            params {
+                input = unsupportedSraAccession.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a malformed SRA accession") {
+
+        when {
+            params {
+                input = malformedSraAccession.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject whitespace in SRA sample IDs") {
+
+        when {
+            params {
+                input = sraSampleWithWhitespace.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Input type detection
+    // =========================================================================
+
+    test("Should reject a samplesheet containing both FASTQ and SRA columns") {
+
+        when {
+            params {
+                input = ambiguousInput.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a samplesheet with an unknown input format") {
+
+        when {
+            params {
+                input = unknownInput.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid input file
+    // =========================================================================
 
     test("Should reject a nonexistent samplesheet") {
 

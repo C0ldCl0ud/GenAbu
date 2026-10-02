@@ -1,33 +1,11 @@
-include { validateParameters } from 'plugin/nf-schema'
+include { INPUT_VALIDATOR } from './subworkflows/local/input_validator/main'
 
-def validateSamplesheetHeader(String samplesheet) {
-
-    def expected = ['sample', 'fastq_1', 'fastq_2']
-
-    def header = new File(samplesheet)
-        .readLines()
-        .first()
-        .split(',')
-        .collect { it.trim() }
-
-    if (header != expected) {
-        error """
-        Invalid samplesheet header.
-
-        Expected:
-        sample,fastq_1,fastq_2
-
-        Found:
-        ${header.join(',')}
-        """
-    }
-}
 
 workflow {
 
+    INPUT_VALIDATOR(params.input)
 
-    validateSamplesheetHeader(params.input)
-    validateParameters()
+    ch_input   = INPUT_VALIDATOR.out.ch_input
+    input_type = INPUT_VALIDATOR.out.input_type
 
-    log.info "Input validation successful"
 }
