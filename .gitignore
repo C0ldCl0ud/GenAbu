@@ -6,5 +6,9 @@
 work
 .nextflow.log*
 
+#nf-test
+.nf-test
+.nf-test.log*
+
 #Obsidian config
 Information/.obsidian

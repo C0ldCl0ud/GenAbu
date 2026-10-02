@@ -12,6 +12,7 @@
             "sample": {
                 "type": "string",
                 "minLength": 1,
+                "pattern": "^\\S+$",
                 "meta": "id"
             },
 
@@ -23,25 +24,16 @@
             },
 
             "fastq_2": {
-                "anyOf": [
-                    {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^\\S+\\.(fastq|fq)\\.gz$"
-                    },
-                    {
-                        "type": "string",
-                        "maxLength": 0
-                    }
-                ]
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fastq|fq)\\.gz$"
             }
         },
 
         "required": [
             "sample",
-            "fastq_1",
-            "fastq_2"
+            "fastq_1"
         ]
     }
 }

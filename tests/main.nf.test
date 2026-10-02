@@ -1,0 +1,394 @@
+/*
+ * Pipeline-level tests for input validation.
+ *
+ * Test FASTQ files:
+ *   tests/data/SRR6357070_1.fastq.gz
+ *   tests/data/SRR6357070_2.fastq.gz
+ *
+ * Samplesheets are generated below with absolute paths because nf-test
+ * executes pipelines from an isolated .nf-test working directory.
+ */
+
+// -----------------------------------------------------------------------------
+// Test fixture setup
+// -----------------------------------------------------------------------------
+
+def rootDir = new File(".").canonicalFile
+
+def fastq1 = new File(
+    rootDir,
+    "tests/data/SRR6357070_1.fastq.gz"
+).canonicalPath
+
+def fastq2 = new File(
+    rootDir,
+    "tests/data/SRR6357070_2.fastq.gz"
+).canonicalPath
+
+/*
+ * Put generated test input files inside .nf-test so that they are not
+ * committed to Git.
+ */
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-input-validation"
+)
+
+fixtureDir.mkdirs()
+
+
+// -----------------------------------------------------------------------------
+// Valid paired-end samplesheet
+// -----------------------------------------------------------------------------
+
+def validPaired = new File(
+    fixtureDir,
+    "valid_paired.csv"
+)
+
+validPaired.text = """\
+sample,fastq_1,fastq_2
+sample1,${fastq1},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Valid single-end samplesheet
+// -----------------------------------------------------------------------------
+
+def validSingle = new File(
+    fixtureDir,
+    "valid_single.csv"
+)
+
+validSingle.text = """\
+sample,fastq_1,fastq_2
+sample1,${fastq1},
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: sample column missing
+// -----------------------------------------------------------------------------
+
+def missingSampleColumn = new File(
+    fixtureDir,
+    "invalid_missing_sample_column.csv"
+)
+
+missingSampleColumn.text = """\
+fastq_1,fastq_2
+${fastq1},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: fastq_1 column missing
+// -----------------------------------------------------------------------------
+
+def missingFastq1Column = new File(
+    fixtureDir,
+    "invalid_missing_fastq1_column.csv"
+)
+
+missingFastq1Column.text = """\
+sample,fastq_2
+sample1,${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: sample value empty
+// -----------------------------------------------------------------------------
+
+def emptySample = new File(
+    fixtureDir,
+    "invalid_empty_sample.csv"
+)
+
+emptySample.text = """\
+sample,fastq_1,fastq_2
+,${fastq1},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: fastq_1 value empty
+// -----------------------------------------------------------------------------
+
+def emptyFastq1 = new File(
+    fixtureDir,
+    "invalid_empty_fastq1.csv"
+)
+
+emptyFastq1.text = """\
+sample,fastq_1,fastq_2
+sample1,,${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: sample ID contains whitespace
+//
+// This test will only pass once the schema rejects whitespace in sample IDs,
+// e.g. with:
+//
+//     "pattern": "^\\\\S+$"
+//
+// -----------------------------------------------------------------------------
+
+def sampleWithWhitespace = new File(
+    fixtureDir,
+    "invalid_sample_whitespace.csv"
+)
+
+sampleWithWhitespace.text = """\
+sample,fastq_1,fastq_2
+sample one,${fastq1},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: referenced FASTQ does not exist
+// -----------------------------------------------------------------------------
+
+def nonexistentFastqPath = new File(
+    fixtureDir,
+    "does_not_exist.fastq.gz"
+).canonicalPath
+
+def nonexistentFastq = new File(
+    fixtureDir,
+    "invalid_nonexistent_fastq.csv"
+)
+
+nonexistentFastq.text = """\
+sample,fastq_1,fastq_2
+sample1,${nonexistentFastqPath},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: existing file has wrong extension
+//
+// We deliberately create the file so that this test checks the extension
+// rule and NOT file existence.
+// -----------------------------------------------------------------------------
+
+def wrongExtensionFile = new File(
+    fixtureDir,
+    "reads.txt"
+)
+
+wrongExtensionFile.text = "This file deliberately has the wrong extension.\n"
+
+def invalidFastqExtension = new File(
+    fixtureDir,
+    "invalid_fastq_extension.csv"
+)
+
+invalidFastqExtension.text = """\
+sample,fastq_1,fastq_2
+sample1,${wrongExtensionFile.canonicalPath},${fastq2}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// Invalid: fastq_2 column does not exist
+// -----------------------------------------------------------------------------
+
+def missingFastq2Column = new File(
+    fixtureDir,
+    "invalid_missing_fastq2_column.csv"
+)
+
+missingFastq2Column.text = """\
+sample,fastq_1
+sample1,${fastq1}
+""".stripIndent()
+
+
+// -----------------------------------------------------------------------------
+// nf-test specification
+// -----------------------------------------------------------------------------
+
+nextflow_pipeline {
+
+    name "Pipeline input validation"
+
+    script "../main.nf"
+
+
+    // -------------------------------------------------------------------------
+    // Valid inputs
+    // -------------------------------------------------------------------------
+
+    test("Should accept a valid paired-end samplesheet") {
+
+        when {
+            params {
+                input = validPaired.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    test("Should accept a valid single-end samplesheet") {
+
+        when {
+            params {
+                input = validSingle.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Invalid samplesheet structure
+    // -------------------------------------------------------------------------
+
+    test("Should reject a samplesheet without the sample column") {
+
+        when {
+            params {
+                input = missingSampleColumn.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a samplesheet without the fastq_1 column") {
+
+        when {
+            params {
+                input = missingFastq1Column.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+    test("Should reject a samplesheet without the fastq_2 column") {
+
+        when {
+            params {
+                input = missingFastq2Column.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Invalid field values
+    // -------------------------------------------------------------------------
+
+    test("Should reject an empty sample ID") {
+
+        when {
+            params {
+                input = emptySample.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject an empty fastq_1 value") {
+
+        when {
+            params {
+                input = emptyFastq1.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject whitespace in sample IDs") {
+
+        when {
+            params {
+                input = sampleWithWhitespace.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Invalid files
+    // -------------------------------------------------------------------------
+
+    test("Should reject a nonexistent FASTQ file") {
+
+        when {
+            params {
+                input = nonexistentFastq.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a FASTQ file with an invalid extension") {
+
+        when {
+            params {
+                input = invalidFastqExtension.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+
+    test("Should reject a nonexistent samplesheet") {
+
+        when {
+            params {
+                input = new File(
+                    fixtureDir,
+                    "samplesheet_does_not_exist.csv"
+                ).canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+}
