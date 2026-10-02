@@ -103,6 +103,17 @@ workflow INPUT_VALIDATOR {
                 "${projectDir}/assets/schema_input.json"
             )
         )
+        .map { meta, fastq_1, fastq_2 ->
+
+            def reads = fastq_2
+                ? [fastq_1, fastq_2]
+                : [fastq_1]
+
+            tuple(
+                meta + [single_end: !fastq_2],
+                reads
+            )
+        }
         ch_sra = Channel.empty()
     }
 

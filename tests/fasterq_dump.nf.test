@@ -1,0 +1,240 @@
+/*
+ * Process-level tests for FASTERQ_DUMP.
+ *
+ * These tests use Nextflow stub mode:
+ *   - no SRA Toolkit installation is required
+ *   - no real FASTQ conversion happens
+ *   - no network access is required
+ *
+ * The tests verify the process interface and expected output structure.
+ */
+
+
+// -----------------------------------------------------------------------------
+// Test fixture setup
+// -----------------------------------------------------------------------------
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-fasterq-dump"
+)
+
+fixtureDir.mkdirs()
+
+
+// -----------------------------------------------------------------------------
+// Fake prefetched SRA directory
+// -----------------------------------------------------------------------------
+
+def sraDir = new File(
+    fixtureDir,
+    "SRR6357070"
+)
+
+sraDir.mkdirs()
+
+def sraFile = new File(
+    sraDir,
+    "SRR6357070.sra"
+)
+
+sraFile.text = "stub SRA file\n"
+
+
+// -----------------------------------------------------------------------------
+// Second fake SRA directory for multi-sample test
+// -----------------------------------------------------------------------------
+
+def secondSraDir = new File(
+    fixtureDir,
+    "ERR123456"
+)
+
+secondSraDir.mkdirs()
+
+def secondSraFile = new File(
+    secondSraDir,
+    "ERR123456.sra"
+)
+
+secondSraFile.text = "stub SRA file\n"
+
+
+// =============================================================================
+// nf-test specification
+// =============================================================================
+
+nextflow_process {
+
+    name "Test FASTERQ_DUMP"
+    tag "ci"
+
+    script "../modules/local/fasterq_dump/main.nf"
+    process "FASTERQ_DUMP"
+
+    // Never execute fasterq-dump in normal CI.
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Basic execution
+    // =========================================================================
+
+    test("Should create compressed FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [id: 'sample1'],
+                        'SRR6357070',
+                        file('${sraDir.canonicalPath}', checkIfExists: true)
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def meta  = result[0]
+                def reads = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert meta.id == 'sample1'
+
+                assert reads.size() == 2
+
+                def filenames = reads.collect {
+                    new File(it.toString()).name
+                }.sort()
+
+                assert filenames == [
+                    'SRR6357070_1.fastq.gz',
+                    'SRR6357070_2.fastq.gz'
+                ]
+
+                reads.each {
+                    assert new File(it.toString()).exists()
+                }
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Metadata preservation
+    // =========================================================================
+
+    test("Should preserve sample metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            condition: 'treated',
+                            batch: 'batch1'
+                        ],
+                        'SRR6357070',
+                        file('${sraDir.canonicalPath}', checkIfExists: true)
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def meta = result[0]
+
+                assert meta.id == 'sample1'
+                assert meta.condition == 'treated'
+                assert meta.batch == 'batch1'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Multiple samples
+    // =========================================================================
+
+    test("Should process multiple SRA accessions independently") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [id: 'sample1'],
+                        'SRR6357070',
+                        file('${sraDir.canonicalPath}', checkIfExists: true)
+                    ),
+                    tuple(
+                        [id: 'sample2'],
+                        'ERR123456',
+                        file('${secondSraDir.canonicalPath}', checkIfExists: true)
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 2
+            assert process.out.reads.size() == 2
+
+            def sampleIds = process.out.reads
+                .collect { it[0].id }
+                .sort()
+
+            assert sampleIds == [
+                'sample1',
+                'sample2'
+            ]
+
+            def allFilenames = process.out.reads
+                .collectMany { result ->
+
+                    def reads = result[1] instanceof List
+                        ? result[1]
+                        : [result[1]]
+
+                    reads.collect {
+                        new File(it.toString()).name
+                    }
+                }
+                .sort()
+
+            assert allFilenames == [
+                'ERR123456_1.fastq.gz',
+                'ERR123456_2.fastq.gz',
+                'SRR6357070_1.fastq.gz',
+                'SRR6357070_2.fastq.gz'
+            ]
+        }
+    }
+}

@@ -8,7 +8,7 @@ process SRA_PREFETCH {
     tuple val(meta), val(accession)
 
     output:
-    tuple val(meta), path("${accession}", type: 'dir'), emit: sra
+    tuple val(meta), val(accession), path("${accession}", type: 'dir'), emit: sra
 
     script:
     """
