@@ -1,0 +1,39 @@
+nextflow_process {
+
+    name "Test SRA_PREFETCH"
+    tag "ci"
+
+    script "../modules/local/sra_prefetch/main.nf"
+
+    process "SRA_PREFETCH"
+
+    options "-stub-run"
+
+    test("Should create an SRA accession directory") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    [[id: 'sample1'], 'SRR6357070']
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.sra) {
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'sample1'
+                assert result[1].getName() == 'SRR6357070'
+                assert result[1].isDirectory()
+            }
+        }
+    }
+}

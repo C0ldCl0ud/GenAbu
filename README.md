@@ -15,7 +15,8 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 - Calculate Abundances
 
 ## Tools
-- to be determined
+- nf-schema
+- SRA Toolkit
 
 ## Input
 - Start A: samplesheet

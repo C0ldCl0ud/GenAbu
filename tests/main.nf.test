@@ -470,6 +470,7 @@ sample1,https://example.org/reads.fastq.gz
 nextflow_pipeline {
 
     name "Pipeline input validation"
+    tag "ci"
 
     script "../main.nf"
 

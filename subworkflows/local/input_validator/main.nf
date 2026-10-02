@@ -85,28 +85,30 @@ workflow INPUT_VALIDATOR {
 
     validateSamplesheetHeader(input)
 
-    if (input_type == 'fastq') {
+    if (input_type == 'sra') {
 
-        ch_input = Channel.fromList(
-            samplesheetToList(
-                input,
-                "${projectDir}/assets/schema_input.json"
-            )
-        )
-
-    } else if (input_type == 'sra') {
-
-        ch_input = Channel.fromList(
+        ch_sra = Channel.fromList(
             samplesheetToList(
                 input,
                 "${projectDir}/assets/schema_input_sra.json"
             )
         )
+        ch_fastq = Channel.empty()
+
+    } else {
+
+        ch_fastq = Channel.fromList(
+            samplesheetToList(
+                input,
+                "${projectDir}/assets/schema_input.json"
+            )
+        )
+        ch_sra = Channel.empty()
     }
 
     log.info "Input validation successful"
 
     emit:
-    ch_input
-    input_type
+    sra   = ch_sra
+    fastq = ch_fastq
 }

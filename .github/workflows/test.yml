@@ -30,4 +30,4 @@ jobs:
         run: nextflow run . -profile test
 
       - name: Run nf-test suite
-        run: nf-test test --ci
+        run: nf-test test --tag ci --ci
