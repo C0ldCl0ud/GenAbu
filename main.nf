@@ -3,6 +3,7 @@ include { INPUT_VALIDATOR } from './subworkflows/local/input_validator/main'
 include { PAPER_ACCESSIONS } from './subworkflows/local/paper_accessions/main'
 include { SRA_INPUT }       from './subworkflows/local/sra_input/main'
 include { FALCO }           from './modules/local/falco/main'
+include { MULTIQC }         from './modules/local/multiqc/main'
 
 
 workflow {
@@ -28,5 +29,12 @@ workflow {
             .mix(SRA_INPUT.out.reads)
 
         FALCO(ch_reads)
+
+        ch_multiqc_files = FALCO.out.data
+            .map { meta, files -> files }
+            .flatten()
+            .collect()
+
+        MULTIQC(ch_multiqc_files)
     }
 }
