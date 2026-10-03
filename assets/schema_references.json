@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GenAbu reference catalogue",
+  "description": "Pinned reference genomes available for automatic resolution.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "species": {
+        "type": "string"
+      },
+      "assembly": {
+        "type": "string"
+      },
+      "assembly_version": {
+        "type": "string"
+      },
+      "assembly_accession": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      },
+      "release": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "aliases": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "genome_url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "gtf_url": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "required": [
+      "id",
+      "species",
+      "assembly",
+      "assembly_version",
+      "assembly_accession",
+      "source",
+      "release",
+      "aliases",
+      "genome_url",
+      "gtf_url"
+    ],
+    "additionalProperties": false
+  }
+}

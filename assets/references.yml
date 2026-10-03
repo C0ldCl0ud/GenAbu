@@ -1,0 +1,30 @@
+- id: human
+  species: Homo sapiens
+  assembly: GRCh38
+  assembly_version: GRCh38.p14
+  assembly_accession: GCA_000001405.29
+  source: Ensembl
+  release: 116
+  aliases:
+    - human
+    - homo sapiens
+    - homo_sapiens
+    - grch38
+    - grch38.p14
+  genome_url: https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+  gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/homo_sapiens/Homo_sapiens.GRCh38.116.gtf.gz
+
+- id: mouse
+  species: Mus musculus
+  assembly: GRCm39
+  assembly_version: GRCm39
+  assembly_accession: GCA_000001635.9
+  source: Ensembl
+  release: 116
+  aliases:
+    - mouse
+    - mus musculus
+    - mus_musculus
+    - grcm39
+  genome_url: https://ftp.ensembl.org/pub/release-116/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz
+  gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/mus_musculus/Mus_musculus.GRCm39.116.gtf.gz
