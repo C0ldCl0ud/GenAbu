@@ -1,0 +1,413 @@
+/*
+ * Subworkflow-level tests for REFERENCE_PREPARATION.
+ *
+ * REFERENCE_PREPARATION:
+ *
+ *   REFERENCE_RESOLVER
+ *          |
+ *          v
+ *   genome FASTA + GTF
+ *          |
+ *          v
+ *   TRANSCRIPTOME_GENERATE
+ *          |
+ *          v
+ *   transcript FASTA
+ *          |
+ *          +---- genome FASTA
+ *          |
+ *          v
+ *      SALMON_INDEX
+ *
+ * Normal CI uses stub mode only.
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-reference-preparation"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+/*
+ * Create a persistent cache entry matching the layout expected by
+ * REFERENCE_RESOLVER.
+ */
+def createCachedReference = {
+    File cacheRoot,
+    String id,
+    String species,
+    String assembly,
+    String assemblyVersion,
+    String assemblyAccession ->
+
+    def referenceDir = new File(
+        cacheRoot,
+        "ensembl/release-116/${id}-${assembly}"
+    )
+
+    referenceDir.mkdirs()
+
+    writeGzip(
+        new File(
+            referenceDir,
+            "genome.fa.gz"
+        ),
+        ">chr1\n" +
+        "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT\n"
+    )
+
+    writeGzip(
+        new File(
+            referenceDir,
+            "genes.gtf.gz"
+        ),
+        """\
+chr1\tGenAbu\ttranscript\t1\t40\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t40\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+""".stripIndent()
+    )
+
+    new File(
+        referenceDir,
+        "reference.yml"
+    ).text = """\
+id: ${id}
+species: "${species}"
+assembly: ${assembly}
+assembly_version: ${assemblyVersion}
+assembly_accession: ${assemblyAccession}
+source: Ensembl
+release: 116
+""".stripIndent()
+
+    referenceDir
+}
+
+
+/*
+ * Cache miss fixture.
+ */
+def cacheMiss = new File(
+    fixtureDir,
+    "cache-miss"
+)
+
+cacheMiss.mkdirs()
+
+
+/*
+ * Cache hit fixture.
+ */
+def cacheHit = new File(
+    fixtureDir,
+    "cache-hit"
+)
+
+cacheHit.mkdirs()
+
+createCachedReference(
+    cacheHit,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+
+nextflow_workflow {
+
+    name "Test REFERENCE_PREPARATION"
+    tag "ci"
+
+    script "../subworkflows/local/reference_preparation/main.nf"
+    workflow "REFERENCE_PREPARATION"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Cache miss
+    // =========================================================================
+
+    test("Should prepare a complete mouse reference from a cache miss") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${cacheMiss.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            /*
+             * Cache miss:
+             *
+             * REFERENCE_DOWNLOAD
+             * + TRANSCRIPTOME_GENERATE
+             * + SALMON_INDEX
+             */
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+
+
+            with(workflow.out.reference) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.assembly_version == 'GRCm39'
+                assert reference.assembly_accession ==
+                    'GCA_000001635.9'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genome.fa.gz'
+
+                assert path(
+                    result[2]
+                ).toFile().name == 'genes.gtf.gz'
+
+                assert path(
+                    result[3]
+                ).toFile().name == 'reference.yml'
+            }
+
+
+            with(workflow.out.genome_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genome.fa.gz'
+            }
+
+
+            with(workflow.out.gtf) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genes.gtf.gz'
+            }
+
+
+            with(workflow.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def transcriptFasta = path(
+                    result[1]
+                ).toFile()
+
+                assert transcriptFasta.name ==
+                    'transcripts.fa.gz'
+
+                assert transcriptFasta.exists()
+                assert transcriptFasta.length() > 0
+            }
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+
+                assert new File(
+                    indexDir,
+                    'info.json'
+                ).exists()
+            }
+
+
+            with(workflow.out.manifest) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'reference.yml'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Cache hit
+    // =========================================================================
+
+    test("Should reuse a cached reference and continue preparation") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${cacheHit.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            /*
+             * Cache hit:
+             *
+             * REFERENCE_DOWNLOAD does NOT run.
+             *
+             * TRANSCRIPTOME_GENERATE
+             * + SALMON_INDEX
+             */
+            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.succeeded().size() == 2
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+
+                assert new File(
+                    indexDir,
+                    'info.json'
+                ).exists()
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Alias resolution through the complete preparation workflow
+    // =========================================================================
+
+    test("Should accept a species alias") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'Mus musculus'
+                )
+
+                input[1] = Channel.value(
+                    '${cacheHit.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            assert workflow.trace.tasks().size() == 2
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def reference = get(0)[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+            }
+        }
+    }
+}
