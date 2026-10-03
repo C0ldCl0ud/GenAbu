@@ -94,6 +94,17 @@ process CUTADAPT {
 
     def expected_single_end = read_list.size() == 1
 
+    if (
+        meta.containsKey('single_end') &&
+        meta.single_end != expected_single_end
+    ) {
+        error """
+        CUTADAPT input contract mismatch for ${meta.id}:
+        single_end=${meta.single_end},
+        but ${read_list.size()} FASTQ file(s) were provided
+        """
+    }
+
     def output_commands = expected_single_end
         ? """
           printf '' | gzip -c > "${meta.id}.trimmed.fastq.gz"
