@@ -2,9 +2,9 @@
  * Pipeline-level smoke tests.
  *
  * These tests verify top-level wiring:
- *   - FASTQ input is routed directly into FALCO.
- *   - SRA input is prepared through SRA_INPUT and routed into FALCO.
- *   - PDF input is routed through PAPER_ACCESSIONS.
+ *   - FASTQ input is routed into FALCO and MULTIQC.
+ *   - SRA input is prepared through SRA_INPUT, then routed into FALCO and MULTIQC.
+ *   - PDF input is routed through PAPER_ACCESSIONS, SRA_INPUT, FALCO, and MULTIQC.
  *   - resolve_only stops after paper accession resolution.
  */
 
@@ -55,7 +55,10 @@ def validPaper = new File(
     "paper.pdf"
 )
 
-validPaper.setText("%" + "PDF-stub fixture\n", "UTF-8")
+validPaper.setText(
+    "%" + "PDF-stub fixture\n",
+    "UTF-8"
+)
 
 
 nextflow_pipeline {
@@ -69,7 +72,7 @@ nextflow_pipeline {
     options "-stub-run"
 
 
-    test("Should route FASTQ input directly into FALCO") {
+    test("Should route FASTQ input through FALCO and MULTIQC") {
 
         when {
             params {
@@ -81,14 +84,15 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // FASTQ input bypasses SRA_INPUT and runs only FALCO.
-            assert workflow.trace.tasks().size() == 1
-            assert workflow.trace.succeeded().size() == 1
+            // FASTQ input bypasses SRA_INPUT.
+            // FALCO + MULTIQC.
+            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.succeeded().size() == 2
         }
     }
 
 
-    test("Should route SRA input through SRA_INPUT and FALCO") {
+    test("Should route SRA input through SRA_INPUT, FALCO, and MULTIQC") {
 
         when {
             params {
@@ -100,16 +104,17 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // One SRA_PREFETCH task
-            // + one FASTERQ_DUMP task
-            // + one FALCO task.
-            assert workflow.trace.tasks().size() == 3
-            assert workflow.trace.succeeded().size() == 3
+            // SRA_PREFETCH
+            // + FASTERQ_DUMP
+            // + FALCO
+            // + MULTIQC.
+            assert workflow.trace.tasks().size() == 4
+            assert workflow.trace.succeeded().size() == 4
         }
     }
 
 
-    test("Should route PDF input through PAPER_ACCESSIONS") {
+    test("Should route PDF input through PAPER_ACCESSIONS and QC") {
 
         when {
             params {
@@ -121,12 +126,66 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // Three paper-resolution tasks + SRA_PREFETCH
-            // + FASTERQ_DUMP + FALCO.
-            assert workflow.trace.tasks().size() == 6
-            assert workflow.trace.succeeded().size() == 6
+            // PDF_TO_TEXT
+            // + ACCESSION_EXTRACTOR
+            // + ACCESSION_RESOLVER
+            // + SRA_PREFETCH
+            // + FASTERQ_DUMP
+            // + FALCO
+            // + MULTIQC.
+            assert workflow.trace.tasks().size() == 7
+            assert workflow.trace.succeeded().size() == 7
         }
     }
+
+
+    test("Should stop after resolving a PDF in resolve-only mode") {
+
+        when {
+            params {
+                input = validPaper.canonicalPath
+                resolve_only = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // PDF_TO_TEXT
+            // + ACCESSION_EXTRACTOR
+            // + ACCESSION_RESOLVER.
+            //
+            // SRA_INPUT, FALCO, and MULTIQC must not run.
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+        }
+    }
+
+
+    test("Should accept a custom max_runs value for PDF input") {
+
+        when {
+            params {
+                input = validPaper.canonicalPath
+                resolve_only = true
+                max_runs = 1
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // PDF_TO_TEXT
+            // + ACCESSION_EXTRACTOR
+            // + ACCESSION_RESOLVER.
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+        }
+    }
+
+
 
 
     test("Should stop after resolving a PDF in resolve-only mode") {

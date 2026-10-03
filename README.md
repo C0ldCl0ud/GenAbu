@@ -19,6 +19,7 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 - ffq 0.3.1
 - SRA Toolkit 3.2.1
 - Falco 2.0.2
+- MultiQC 1.35
 
 ## Input
 - Start A: samplesheet

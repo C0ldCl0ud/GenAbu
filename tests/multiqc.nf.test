@@ -1,0 +1,131 @@
+/*
+ * Process-level tests for MULTIQC.
+ *
+ * These tests use Nextflow stub mode:
+ *   - no MultiQC installation is required
+ *   - no real report parsing is performed
+ *   - no network access is required
+ *
+ * Contract:
+ *   input  = collection of QC files
+ *   output = MultiQC HTML report, data directory, optional plots,
+ *            and versions.yml
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-multiqc"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeQcFile = { String filename ->
+
+    def file = new File(
+        fixtureDir,
+        filename
+    )
+
+    file.text = """\
+##Falco\t2.0.2
+>>Basic Statistics\tpass
+#Measure\tValue
+Filename\t${filename.replace('_fastqc_data.txt', '.fastq.gz')}
+Total Sequences\t100
+Sequence length\t100
+%GC\t50
+>>END_MODULE
+""".stripIndent()
+
+    file
+}
+
+
+def qcFile1 = makeQcFile(
+    "sample1_R1_fastqc_data.txt"
+)
+
+def qcFile2 = makeQcFile(
+    "sample1_R2_fastqc_data.txt"
+)
+
+
+nextflow_process {
+
+    name "Test MULTIQC"
+    tag "ci"
+
+    script "../modules/local/multiqc/main.nf"
+    process "MULTIQC"
+
+    options "-stub-run"
+
+
+    test("Should create MultiQC outputs from multiple QC files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    [
+                        file(
+                            '${qcFile1.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${qcFile2.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.report) {
+                assert size() == 1
+
+                def report = path(get(0)).toFile()
+
+                assert report.exists()
+                assert report.name == 'multiqc_report.html'
+            }
+
+            with(process.out.data) {
+                assert size() == 1
+
+                def dataDir = path(get(0)).toFile()
+
+                assert dataDir.isDirectory()
+
+                assert new File(
+                    dataDir,
+                    '.stub'
+                ).exists()
+            }
+
+            with(process.out.versions) {
+                assert size() == 1
+
+                def versions = path(get(0)).toFile()
+
+                assert versions.exists()
+
+                assert versions.readLines().any {
+                    it.contains('multiqc: "1.35"')
+                }
+            }
+
+            // multiqc_plots is optional and is not produced by the stub.
+            assert process.out.plots.size() == 0
+        }
+    }
+}
