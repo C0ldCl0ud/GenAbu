@@ -4,15 +4,12 @@ process REFERENCE_DOWNLOAD {
     label 'process_download'
 
     /*
-     * Same pinned wget container currently used by nf-core/modules.
-     * Unlike curlimages/curl, this works with Nextflow's normal Bash
-     * process execution.
+     * Same pinned wget container used by nf-core/modules.
      */
     container 'community.wave.seqera.io/library/wget:1.21.4--8b0fcde81c17be5e'
 
     /*
-     * Persist the downloaded reference outside the Nextflow work
-     * directory so later GenAbu runs can reuse it.
+     * Persist downloaded references outside the Nextflow work directory.
      */
     publishDir {
         "${reference_cache}/${reference.source.toLowerCase()}/release-${reference.release}/${reference.id}-${reference.assembly}"
@@ -76,20 +73,25 @@ EOF
 
     stub:
     """
-    printf 'stub genome\\n' > genome.fa.gz
-    printf 'stub gtf\\n' > genes.gtf.gz
+    printf '>chr1\\nACGTACGT\\n' \
+        | gzip -c \
+        > genome.fa.gz
+
+    printf 'chr1\\tGenAbu\\tgene\\t1\\t8\\t.\\t+\\t.\\tgene_id "gene1";\\n' \
+        | gzip -c \
+        > genes.gtf.gz
 
     cat > reference.yml <<'EOF'
-    id: ${reference.id}
-    species: "${reference.species}"
-    assembly: ${reference.assembly}
-    assembly_version: ${reference.assembly_version}
-    assembly_accession: ${reference.assembly_accession}
-    source: ${reference.source}
-    release: ${reference.release}
-    genome_url: "${reference.genome_url}"
-    gtf_url: "${reference.gtf_url}"
-    EOF
+id: ${reference.id}
+species: "${reference.species}"
+assembly: ${reference.assembly}
+assembly_version: ${reference.assembly_version}
+assembly_accession: ${reference.assembly_accession}
+source: ${reference.source}
+release: ${reference.release}
+genome_url: "${reference.genome_url}"
+gtf_url: "${reference.gtf_url}"
+EOF
 
     printf '"%s":\\n    wget: "1.21.4"\\n' \
         "${task.process}" \
