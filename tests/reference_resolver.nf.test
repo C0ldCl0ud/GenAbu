@@ -1,0 +1,492 @@
+/*
+ * Subworkflow-level tests for REFERENCE_RESOLVER.
+ *
+ * Contract:
+ *
+ *   user-friendly reference name
+ *               |
+ *               v
+ *       REFERENCE_RESOLVER
+ *               |
+ *       +-------+-------+
+ *       |               |
+ *   cache hit       cache miss
+ *       |               |
+ *       |        REFERENCE_DOWNLOAD
+ *       |               |
+ *       +-------+-------+
+ *               |
+ *               v
+ *        genome FASTA + GTF
+ *
+ * Normal CI uses stub mode only.
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-reference-resolver"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+/*
+ * Create a reference directory that looks like an already populated
+ * GenAbu cache.
+ */
+def createCachedReference = {
+    File cacheRoot,
+    String id,
+    String species,
+    String assembly,
+    String assemblyVersion,
+    String assemblyAccession ->
+
+    def referenceDir = new File(
+        cacheRoot,
+        "ensembl/release-116/${id}-${assembly}"
+    )
+
+    referenceDir.mkdirs()
+
+    new File(
+        referenceDir,
+        "genome.fa.gz"
+    ).text = "cached genome\n"
+
+    new File(
+        referenceDir,
+        "genes.gtf.gz"
+    ).text = "cached gtf\n"
+
+    new File(
+        referenceDir,
+        "reference.yml"
+    ).text = """\
+id: ${id}
+species: "${species}"
+assembly: ${assembly}
+assembly_version: ${assemblyVersion}
+assembly_accession: ${assemblyAccession}
+source: Ensembl
+release: 116
+""".stripIndent()
+
+    referenceDir
+}
+
+
+/*
+ * Each test receives its own cache so tests remain independent.
+ */
+
+def cacheMiss = new File(
+    fixtureDir,
+    "cache-miss"
+)
+
+cacheMiss.mkdirs()
+
+
+def cacheHit = new File(
+    fixtureDir,
+    "cache-hit"
+)
+
+cacheHit.mkdirs()
+
+createCachedReference(
+    cacheHit,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+
+def mouseAliasCache = new File(
+    fixtureDir,
+    "mouse-alias-cache"
+)
+
+mouseAliasCache.mkdirs()
+
+createCachedReference(
+    mouseAliasCache,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+
+def humanAliasCache = new File(
+    fixtureDir,
+    "human-alias-cache"
+)
+
+humanAliasCache.mkdirs()
+
+createCachedReference(
+    humanAliasCache,
+    "human",
+    "Homo sapiens",
+    "GRCh38",
+    "GRCh38.p14",
+    "GCA_000001405.29"
+)
+
+
+def invalidCache = new File(
+    fixtureDir,
+    "invalid-cache"
+)
+
+invalidCache.mkdirs()
+
+
+nextflow_workflow {
+
+    name "Test REFERENCE_RESOLVER"
+    tag "ci"
+
+    script "../subworkflows/local/reference_resolver/main.nf"
+    workflow "REFERENCE_RESOLVER"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Cache miss
+    // =========================================================================
+
+    test("Should download a missing mouse reference") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of('mouse')
+
+                input[1] = Channel.value(
+                    '${cacheMiss.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            /*
+             * A cache miss must invoke REFERENCE_DOWNLOAD exactly once.
+             */
+            assert workflow.trace.tasks().size() == 1
+
+
+            with(workflow.out.reference) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+                def genome    = path(result[1]).toFile()
+                def gtf       = path(result[2]).toFile()
+                def manifest  = path(result[3]).toFile()
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.assembly_version == 'GRCm39'
+                assert reference.assembly_accession ==
+                    'GCA_000001635.9'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+
+                assert genome.name == 'genome.fa.gz'
+                assert gtf.name == 'genes.gtf.gz'
+                assert manifest.name == 'reference.yml'
+
+                assert genome.exists()
+                assert gtf.exists()
+                assert manifest.exists()
+            }
+
+
+            with(workflow.out.genome_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genome.fa.gz'
+            }
+
+
+            with(workflow.out.gtf) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genes.gtf.gz'
+            }
+
+
+            with(workflow.out.manifest) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'reference.yml'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Cache hit
+    // =========================================================================
+
+    test("Should reuse an existing cached reference") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of('mouse')
+
+                input[1] = Channel.value(
+                    '${cacheHit.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            /*
+             * No process should run because all required reference
+             * files already exist in the persistent cache.
+             */
+            assert workflow.trace.tasks().size() == 0
+
+
+            with(workflow.out.reference) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+
+                assert path(
+                    result[1]
+                ).toFile().canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+
+                assert path(
+                    result[2]
+                ).toFile().canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Mouse aliases
+    // =========================================================================
+
+    test("Should resolve mouse aliases to the same pinned reference") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse',
+                    'Mus musculus',
+                    'mus_musculus',
+                    'GRCm39'
+                )
+
+                input[1] = Channel.value(
+                    '${mouseAliasCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            /*
+             * All aliases use the already populated cache.
+             */
+            assert workflow.trace.tasks().size() == 0
+
+            assert workflow.out.reference.size() == 4
+
+
+            def references = workflow.out.reference.collect {
+                result -> result[0]
+            }
+
+
+            assert references.collect {
+                it.id
+            }.unique() == [
+                'mouse'
+            ]
+
+
+            assert references.collect {
+                it.species
+            }.unique() == [
+                'Mus musculus'
+            ]
+
+
+            assert references.collect {
+                it.assembly
+            }.unique() == [
+                'GRCm39'
+            ]
+
+
+            assert references.collect {
+                it.release
+            }.unique() == [
+                116
+            ]
+        }
+    }
+
+
+    // =========================================================================
+    // Human aliases
+    // =========================================================================
+
+    test("Should resolve human aliases to the same pinned reference") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'human',
+                    'Homo sapiens',
+                    'homo_sapiens',
+                    'GRCh38',
+                    'GRCh38.p14'
+                )
+
+                input[1] = Channel.value(
+                    '${humanAliasCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            assert workflow.trace.tasks().size() == 0
+            assert workflow.out.reference.size() == 5
+
+
+            def references = workflow.out.reference.collect {
+                result -> result[0]
+            }
+
+
+            assert references.collect {
+                it.id
+            }.unique() == [
+                'human'
+            ]
+
+
+            assert references.collect {
+                it.species
+            }.unique() == [
+                'Homo sapiens'
+            ]
+
+
+            assert references.collect {
+                it.assembly
+            }.unique() == [
+                'GRCh38'
+            ]
+
+
+            assert references.collect {
+                it.assembly_version
+            }.unique() == [
+                'GRCh38.p14'
+            ]
+
+
+            assert references.collect {
+                it.release
+            }.unique() == [
+                116
+            ]
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid reference
+    // =========================================================================
+
+    test("Should reject an unsupported genome") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'not_a_real_genome'
+                )
+
+                input[1] = Channel.value(
+                    '${invalidCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+}
