@@ -14,7 +14,13 @@
             "type": "boolean",
             "default": false,
             "description": "Resolve paper accessions and stop before SRA download."
-        }
+        },
+        "max_runs": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 20,
+        "description": "Maximum number of sequencing runs to resolve from a paper."
+    }
     },
 
     "required": [

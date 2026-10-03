@@ -39,6 +39,7 @@ nextflow_process {
                 input[0] = Channel.of(
                     file('${accessions.canonicalPath}', checkIfExists: true)
                 )
+                input[1] = 20
                 """
             }
         }

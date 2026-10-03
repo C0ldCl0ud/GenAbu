@@ -10,7 +10,10 @@ workflow {
     INPUT_ROUTER(params.input)
 
     INPUT_VALIDATOR(INPUT_ROUTER.out.samplesheet)
-    PAPER_ACCESSIONS(INPUT_ROUTER.out.paper)
+    PAPER_ACCESSIONS(
+        INPUT_ROUTER.out.paper,
+        params.max_runs
+    )
 
     if (params.resolve_only) {
         log.info('Resolve-only mode enabled: skipping SRA download and quality control.')

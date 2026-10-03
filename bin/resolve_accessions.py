@@ -364,11 +364,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samplesheet", required=True, type=Path)
     parser.add_argument("--fail-if-empty", action="store_true")
     parser.add_argument("--version", action="version", version=VERSION)
+    parser.add_argument("--max-runs", type=int, default=20)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
+    if args.max_runs < 1:
+        print(
+            "ACCESSION_RESOLVER: --max-runs must be at least 1",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
         records = read_accessions(args.input)
@@ -376,6 +384,8 @@ def main() -> int:
     except (OSError, ValueError) as error:
         print(f"ACCESSION_RESOLVER: {error}", file=sys.stderr)
         return 1
+
+    resolved = resolved[:args.max_runs]
 
     write_table(args.resolved, RESOLVED_FIELDS, resolved)
     write_table(args.unresolved, UNRESOLVED_FIELDS, unresolved)

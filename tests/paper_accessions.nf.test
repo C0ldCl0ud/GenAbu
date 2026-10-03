@@ -35,6 +35,7 @@ nextflow_workflow {
                 input[0] = Channel.of(
                     file('${paper.canonicalPath}', checkIfExists: true)
                 )
+                input[1] = 20
                 """
             }
         }

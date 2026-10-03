@@ -7,11 +7,15 @@ workflow PAPER_ACCESSIONS {
 
     take:
     paper
+    max_runs
 
     main:
     PDF_TO_TEXT(paper)
     ACCESSION_EXTRACTOR(PDF_TO_TEXT.out.text)
-    ACCESSION_RESOLVER(ACCESSION_EXTRACTOR.out.accessions)
+    ACCESSION_RESOLVER(
+        ACCESSION_EXTRACTOR.out.accessions,
+        max_runs
+    )
 
     ch_sra = ACCESSION_RESOLVER.out.resolved
         .splitCsv(header: true, sep: '\t')

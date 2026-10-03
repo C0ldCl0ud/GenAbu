@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -163,6 +164,171 @@ class ResolveAccessionsTests(unittest.TestCase):
                 ],
             )
 
+    def test_max_runs_defaults_to_20(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+
+            resolved_path = directory / "resolved.tsv"
+            unresolved_path = directory / "unresolved.tsv"
+            samplesheet_path = directory / "samplesheet.csv"
+
+            resolved_rows = [
+                ena_row(f"SRR{i:03d}")
+                for i in range(1, 26)
+            ]
+
+            argv = [
+                "resolve_accessions.py",
+                "--input",
+                str(directory / "input.tsv"),
+                "--resolved",
+                str(resolved_path),
+                "--unresolved",
+                str(unresolved_path),
+                "--samplesheet",
+                str(samplesheet_path),
+            ]
+
+            with (
+                mock.patch("sys.argv", argv),
+                mock.patch.object(
+                    RESOLVER,
+                    "read_accessions",
+                    return_value=[accession_record("SRP1")],
+                ),
+                mock.patch.object(
+                    RESOLVER,
+                    "resolve_records",
+                    return_value=(resolved_rows, []),
+                ),
+            ):
+                exit_code = RESOLVER.main()
+
+            self.assertEqual(exit_code, 0)
+
+            resolved_lines = resolved_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+
+            samplesheet_lines = samplesheet_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+
+            # Header + 20 runs.
+            self.assertEqual(len(resolved_lines), 21)
+            self.assertEqual(len(samplesheet_lines), 21)
+
+            self.assertIn("SRR020", resolved_lines[-1])
+            self.assertNotIn(
+                "SRR021",
+                resolved_path.read_text(encoding="utf-8"),
+            )
+
+            self.assertEqual(
+                samplesheet_lines[-1],
+                "SRR020,SRR020",
+            )
+
+    def test_max_runs_limits_resolved_runs_and_samplesheet(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+
+            resolved_path = directory / "resolved.tsv"
+            unresolved_path = directory / "unresolved.tsv"
+            samplesheet_path = directory / "samplesheet.csv"
+
+            resolved_rows = [
+                ena_row("SRR001"),
+                ena_row("SRR002"),
+                ena_row("SRR003"),
+            ]
+
+            argv = [
+                "resolve_accessions.py",
+                "--input",
+                str(directory / "input.tsv"),
+                "--resolved",
+                str(resolved_path),
+                "--unresolved",
+                str(unresolved_path),
+                "--samplesheet",
+                str(samplesheet_path),
+                "--max-runs",
+                "2",
+            ]
+
+            with (
+                mock.patch("sys.argv", argv),
+                mock.patch.object(
+                    RESOLVER,
+                    "read_accessions",
+                    return_value=[accession_record("SRP1")],
+                ),
+                mock.patch.object(
+                    RESOLVER,
+                    "resolve_records",
+                    return_value=(resolved_rows, []),
+                ),
+            ):
+                exit_code = RESOLVER.main()
+
+            self.assertEqual(exit_code, 0)
+
+            resolved_lines = resolved_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+
+            self.assertEqual(len(resolved_lines), 3)
+            self.assertIn("SRR001", resolved_lines[1])
+            self.assertIn("SRR002", resolved_lines[2])
+
+            self.assertNotIn(
+                "SRR003",
+                resolved_path.read_text(encoding="utf-8"),
+            )
+
+            self.assertEqual(
+                samplesheet_path.read_text(
+                    encoding="utf-8"
+                ).splitlines(),
+                [
+                    "sample,accession",
+                    "SRR001,SRR001",
+                    "SRR002,SRR002",
+                ],
+            )
+
+    def test_max_runs_must_be_at_least_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+
+            argv = [
+                "resolve_accessions.py",
+                "--input",
+                str(directory / "input.tsv"),
+                "--resolved",
+                str(directory / "resolved.tsv"),
+                "--unresolved",
+                str(directory / "unresolved.tsv"),
+                "--samplesheet",
+                str(directory / "samplesheet.csv"),
+                "--max-runs",
+                "0",
+            ]
+
+            with (
+                mock.patch("sys.argv", argv),
+                mock.patch.object(
+                    RESOLVER,
+                    "read_accessions",
+                ) as read_accessions,
+            ):
+                exit_code = RESOLVER.main()
+
+            self.assertEqual(exit_code, 1)
+
+            # Invalid configuration should fail before any resolution work.
+            read_accessions.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

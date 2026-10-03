@@ -148,4 +148,24 @@ nextflow_pipeline {
             assert workflow.trace.succeeded().size() == 3
         }
     }
+
+    test("Should accept a custom max_runs value for PDF input") {
+
+        when {
+            params {
+                input = validPaper.canonicalPath
+                resolve_only = true
+                max_runs = 1
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // PDF_TO_TEXT + ACCESSION_EXTRACTOR + ACCESSION_RESOLVER.
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+        }
+    }
 }

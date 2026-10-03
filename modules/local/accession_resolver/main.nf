@@ -11,6 +11,7 @@ process ACCESSION_RESOLVER {
 
     input:
     path accessions
+    val max_runs
 
     output:
     path "${accessions.baseName}.resolved.tsv", emit: resolved
@@ -29,6 +30,7 @@ process ACCESSION_RESOLVER {
         --resolved "${prefix}.resolved.tsv" \
         --unresolved "${prefix}.unresolved.tsv" \
         --samplesheet "samplesheet.csv" \
+        --max-runs "${max_runs}" \
         --fail-if-empty
 
     printf '"%s":\n    ffq: "%s"\n    accession_resolver: "%s"\n' \
