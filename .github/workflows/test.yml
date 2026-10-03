@@ -16,6 +16,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Run Python unit tests
+        run: python3 -m unittest discover -s tests/unit -p 'test_*.py' -v
+
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
         with:

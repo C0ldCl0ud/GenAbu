@@ -12,3 +12,6 @@ work
 
 #Obsidian config
 Information/.obsidian
+
+#patches
+*.patch

@@ -9,12 +9,14 @@ process ACCESSION_RESOLVER {
     path accessions
 
     output:
-    path "${accessions.simpleName}.resolved.tsv", emit: resolved
-    path "${accessions.simpleName}.unresolved.tsv", emit: unresolved
+    path "${accessions.baseName}.resolved.tsv", emit: resolved
+    path "${accessions.baseName}.unresolved.tsv", emit: unresolved
     path "versions.yml", emit: versions
 
     script:
-    def prefix = accessions.simpleName
+    // baseName removes only the final .tsv suffix. For an input named
+    // paper.accessions.tsv this deliberately preserves paper.accessions.
+    def prefix = accessions.baseName
 
     """
     python3 "\$(command -v resolve_accessions.py)" \
@@ -33,10 +35,10 @@ process ACCESSION_RESOLVER {
     stub:
     """
     printf 'source_accession\tsource_file\tresolution_source\tstudy_accession\tsecondary_study_accession\tsample_accession\tsecondary_sample_accession\texperiment_accession\trun_accession\tscientific_name\tlibrary_strategy\tlibrary_source\tlibrary_selection\tlibrary_layout\tfastq_ftp\tfastq_md5\n' \
-        > "${accessions.simpleName}.resolved.tsv"
+        > "${accessions.baseName}.resolved.tsv"
 
     printf 'accession\trepository\taccession_type\tsource_file\treason\n' \
-        > "${accessions.simpleName}.unresolved.tsv"
+        > "${accessions.baseName}.unresolved.tsv"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
