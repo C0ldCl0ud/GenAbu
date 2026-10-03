@@ -93,19 +93,21 @@ nextflow_process {
             with(process.out.report) {
                 assert size() == 1
 
-                assert new File(
-                    get(0).toString()
-                ).name == 'multiqc_report.html'
+                def report = path(get(0)).toFile()
+
+                assert report.exists()
+                assert report.name == 'multiqc_report.html'
             }
 
             with(process.out.data) {
                 assert size() == 1
 
-                def dataDir = path(get(0))
+                def dataDir = path(get(0)).toFile()
 
                 assert dataDir.isDirectory()
+
                 assert new File(
-                    dataDir.toString(),
+                    dataDir,
                     '.stub'
                 ).exists()
             }
@@ -113,7 +115,9 @@ nextflow_process {
             with(process.out.versions) {
                 assert size() == 1
 
-                def versions = path(get(0))
+                def versions = path(get(0)).toFile()
+
+                assert versions.exists()
 
                 assert versions.readLines().any {
                     it.contains('multiqc: "1.35"')
