@@ -5,6 +5,7 @@
  *   - FASTQ input is routed directly into FALCO.
  *   - SRA input is prepared through SRA_INPUT and routed into FALCO.
  *   - PDF input is routed through PAPER_ACCESSIONS.
+ *   - resolve_only stops after paper accession resolution.
  */
 
 def rootDir = new File(".").canonicalFile
@@ -120,8 +121,29 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            // One PDF_TO_TEXT task + one ACCESSION_EXTRACTOR task
-            // + one ACCESSION_RESOLVER task.
+            // Three paper-resolution tasks + SRA_PREFETCH
+            // + FASTERQ_DUMP + FALCO.
+            assert workflow.trace.tasks().size() == 6
+            assert workflow.trace.succeeded().size() == 6
+        }
+    }
+
+
+    test("Should stop after resolving a PDF in resolve-only mode") {
+
+        when {
+            params {
+                input = validPaper.canonicalPath
+                resolve_only = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // PDF_TO_TEXT + ACCESSION_EXTRACTOR + ACCESSION_RESOLVER.
+            // SRA_INPUT and FALCO must not run.
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
         }

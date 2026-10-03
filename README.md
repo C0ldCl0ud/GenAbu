@@ -27,9 +27,11 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 //insert a table here
 
 ## Parameters
-- ...
+- `--resolve_only`: for PDF input, resolve accessions and stop before downloading sequencing data. Default: `false`.
 
 ## Output
+- `results/samplesheet.csv`: reusable run-level SRA samplesheet generated from a paper.
+- `results/paper_resolve/`: extracted paper text, accession tables, and resolver versions.
 - gene_abundance.tsv
 //insert a table here
 

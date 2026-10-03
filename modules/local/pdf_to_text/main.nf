@@ -5,6 +5,8 @@ process PDF_TO_TEXT {
 
     container 'quay.io/biocontainers/poppler:25.07.0'
 
+    publishDir 'results/paper_resolve', mode: 'copy', overwrite: true
+
     input:
     path paper
 

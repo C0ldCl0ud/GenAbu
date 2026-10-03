@@ -12,13 +12,18 @@ workflow {
     INPUT_VALIDATOR(INPUT_ROUTER.out.samplesheet)
     PAPER_ACCESSIONS(INPUT_ROUTER.out.paper)
 
-    ch_sra = INPUT_VALIDATOR.out.sra
-        .mix(PAPER_ACCESSIONS.out.sra)
+    if (params.resolve_only) {
+        log.info('Resolve-only mode enabled: skipping SRA download and quality control.')
+    }
+    else {
+        ch_sra = INPUT_VALIDATOR.out.sra
+            .mix(PAPER_ACCESSIONS.out.sra)
 
-    SRA_INPUT(ch_sra)
+        SRA_INPUT(ch_sra)
 
-    ch_reads = INPUT_VALIDATOR.out.fastq
-        .mix(SRA_INPUT.out.reads)
+        ch_reads = INPUT_VALIDATOR.out.fastq
+            .mix(SRA_INPUT.out.reads)
 
-    FALCO(ch_reads)
+        FALCO(ch_reads)
+    }
 }

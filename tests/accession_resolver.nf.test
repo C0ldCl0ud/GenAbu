@@ -53,9 +53,11 @@ nextflow_process {
                 assert get(0).toString().endsWith(
                     'paper.accessions.resolved.tsv'
                 )
+                assert path(get(0)).readLines().size() == 2
                 assert path(get(0)).readLines().first().contains(
                     'run_accession'
                 )
+                assert path(get(0)).text.contains('SRR000001')
             }
 
             with(process.out.unresolved) {
@@ -67,7 +69,23 @@ nextflow_process {
                     'accession\trepository\taccession_type\tsource_file\treason'
             }
 
-            assert process.out.versions.size() == 1
+            with(process.out.samplesheet) {
+                assert size() == 1
+                assert get(0).toString().endsWith('samplesheet.csv')
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR000001,SRR000001'
+                ]
+            }
+
+            with(process.out.versions) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    '"ACCESSION_RESOLVER":',
+                    '    ffq: "0.3.1"',
+                    '    accession_resolver: "0.1.0"'
+                ]
+            }
         }
     }
 }

@@ -35,5 +35,6 @@ workflow PAPER_ACCESSIONS {
     accessions = ACCESSION_EXTRACTOR.out.accessions
     resolved = ACCESSION_RESOLVER.out.resolved
     unresolved = ACCESSION_RESOLVER.out.unresolved
+    samplesheet = ACCESSION_RESOLVER.out.samplesheet
     sra = ch_sra
 }

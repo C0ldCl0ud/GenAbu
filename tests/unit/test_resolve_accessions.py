@@ -142,6 +142,27 @@ class ResolveAccessionsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must contain"):
                 RESOLVER.read_accessions(path)
 
+    def test_writes_a_reusable_samplesheet_with_unique_run_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "samplesheet.csv"
+
+            RESOLVER.write_samplesheet(
+                path,
+                [
+                    ena_row("SRR1", "SRS1"),
+                    ena_row("SRR2", "SRS1"),
+                ],
+            )
+
+            self.assertEqual(
+                path.read_text(encoding="utf-8").splitlines(),
+                [
+                    "sample,accession",
+                    "SRR1,SRR1",
+                    "SRR2,SRR2",
+                ],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

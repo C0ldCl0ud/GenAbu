@@ -4,6 +4,7 @@
 #Nextflow
 .nextflow
 work
+results/
 .nextflow.log*
 
 #nf-test

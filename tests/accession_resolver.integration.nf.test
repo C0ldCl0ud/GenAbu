@@ -60,6 +60,13 @@ nextflow_process {
             assert path(
                 process.out.unresolved.get(0)
             ).readLines().size() == 1
+
+            assert path(
+                process.out.samplesheet.get(0)
+            ).readLines() == [
+                'sample,accession',
+                'SRR10668798,SRR10668798'
+            ]
         }
     }
 }

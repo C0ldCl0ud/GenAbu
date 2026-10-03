@@ -7,8 +7,13 @@
             "type": "string",
             "format": "file-path",
             "exists": true,
-            "pattern": "^\\S+\\.csv$",
-            "description": "Input samplesheet containing either FASTQ paths or SRA accessions."
+            "pattern": "^\\S+\\.(?:[cC][sS][vV]|[pP][dD][fF])$",
+            "description": "Input CSV samplesheet or PDF paper."
+        },
+        "resolve_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "Resolve paper accessions and stop before SRA download."
         }
     },
 

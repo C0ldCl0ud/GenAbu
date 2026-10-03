@@ -130,6 +130,14 @@ nextflow_workflow {
                 assert path(get(0)).text.contains('SRR10668798')
             }
 
+            with(workflow.out.samplesheet) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR10668798,SRR10668798'
+                ]
+            }
+
             assert workflow.out.sra.size() == 1
         }
     }

@@ -5,6 +5,8 @@ process ACCESSION_EXTRACTOR {
 
     container 'python:3.12-slim'
 
+    publishDir 'results/paper_resolve', mode: 'copy', overwrite: true
+
     input:
     path paper_text
 

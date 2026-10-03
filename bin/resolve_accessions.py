@@ -54,6 +54,8 @@ UNRESOLVED_FIELDS = [
     "reason",
 ]
 
+SAMPLESHEET_FIELDS = ["sample", "accession"]
+
 
 class ResolutionError(RuntimeError):
     """Raised when an external accession service cannot be queried."""
@@ -328,6 +330,27 @@ def write_table(path: Path, fields: list[str], rows: Iterable[dict[str, str]]) -
         writer.writerows(rows)
 
 
+def write_samplesheet(path: Path, resolved: Iterable[dict[str, str]]) -> None:
+    """Write a reusable SRA samplesheet with one unique row per run."""
+    rows = [
+        {
+            "sample": row["run_accession"],
+            "accession": row["run_accession"],
+        }
+        for row in resolved
+    ]
+
+    with path.open("w", encoding="utf-8", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=SAMPLESHEET_FIELDS,
+            delimiter=",",
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -338,6 +361,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--resolved", required=True, type=Path)
     parser.add_argument("--unresolved", required=True, type=Path)
+    parser.add_argument("--samplesheet", required=True, type=Path)
     parser.add_argument("--fail-if-empty", action="store_true")
     parser.add_argument("--version", action="version", version=VERSION)
     return parser.parse_args()
@@ -355,6 +379,7 @@ def main() -> int:
 
     write_table(args.resolved, RESOLVED_FIELDS, resolved)
     write_table(args.unresolved, UNRESOLVED_FIELDS, unresolved)
+    write_samplesheet(args.samplesheet, resolved)
 
     if args.fail_if_empty and not resolved:
         if not records:

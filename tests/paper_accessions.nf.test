@@ -67,7 +67,7 @@ nextflow_workflow {
                 assert get(0).toString().endsWith(
                     'paper.accessions.resolved.tsv'
                 )
-                assert path(get(0)).readLines().size() == 1
+                assert path(get(0)).readLines().size() == 2
             }
 
             with(workflow.out.unresolved) {
@@ -78,7 +78,15 @@ nextflow_workflow {
                 assert path(get(0)).readLines().size() == 1
             }
 
-            assert workflow.out.sra.size() == 0
+            with(workflow.out.samplesheet) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR000001,SRR000001'
+                ]
+            }
+
+            assert workflow.out.sra.size() == 1
         }
     }
 }
