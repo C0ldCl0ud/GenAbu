@@ -56,13 +56,8 @@ process CUTADAPT {
         : ""
 
     def output_args = expected_single_end
-        ? """
-          -o "${meta.id}.trimmed.fastq.gz"
-          """
-        : """
-          -o "${meta.id}_R1.trimmed.fastq.gz" \
-          -p "${meta.id}_R2.trimmed.fastq.gz"
-          """
+        ? "-o \"${meta.id}.trimmed.fastq.gz\""
+        : "-o \"${meta.id}_R1.trimmed.fastq.gz\" -p \"${meta.id}_R2.trimmed.fastq.gz\""
 
     def input_args = read_list
         .collect { read -> "\"${read}\"" }
