@@ -62,11 +62,11 @@ workflow {
         CUTADAPT(
             ch_reads,
             [
-                r1: null,
-                r2: null
+                r1: params.adapter_r1,
+                r2: params.adapter_r2
             ],
-            null,
-            null
+            params.quality_cutoff,
+            params.minimum_length
         )
 
 
