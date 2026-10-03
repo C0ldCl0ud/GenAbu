@@ -1,0 +1,148 @@
+/*
+ * Real integration test for MULTIQC.
+ *
+ * This test feeds minimal Falco / FastQC-compatible data files
+ * into MultiQC and verifies that both samples are parsed.
+ *
+ * Run with:
+ *
+ *   nf-test test tests/multiqc.integration.nf.test \
+ *       --profile docker
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-multiqc-integration"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeFalcoReport = {
+    String filename,
+    String readFilename,
+    int totalSequences,
+    int gc ->
+
+    def file = new File(
+        fixtureDir,
+        filename
+    )
+
+    file.text = """\
+##Falco\t2.0.2
+>>Basic Statistics\tpass
+#Measure\tValue
+Filename\t${readFilename}
+File type\tConventional base calls
+Encoding\tSanger / Illumina 1.9
+Total Sequences\t${totalSequences}
+Sequences flagged as poor quality\t0
+Sequence length\t100
+%GC\t${gc}
+>>END_MODULE
+""".stripIndent()
+
+    file
+}
+
+
+def falcoR1 = makeFalcoReport(
+    "sample1_R1_fastqc_data.txt",
+    "sample1_R1.fastq.gz",
+    1000,
+    48
+)
+
+def falcoR2 = makeFalcoReport(
+    "sample1_R2_fastqc_data.txt",
+    "sample1_R2.fastq.gz",
+    1000,
+    51
+)
+
+
+nextflow_process {
+
+    name "Test MULTIQC integration"
+    tag "integration"
+
+    script "../modules/local/multiqc/main.nf"
+    process "MULTIQC"
+
+
+    test("Should parse real Falco-compatible QC reports") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    [
+                        file(
+                            '${falcoR1.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${falcoR2.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+            with(process.out.report) {
+
+                assert size() == 1
+
+                def report = path(get(0))
+
+                assert report.exists()
+                assert report.name == 'multiqc_report.html'
+
+                def html = report.text
+
+                assert html.contains('sample1_R1')
+                assert html.contains('sample1_R2')
+            }
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def dataDir = path(get(0))
+
+                assert dataDir.isDirectory()
+
+                def fastqcData = new File(
+                    dataDir.toString(),
+                    'multiqc_fastqc.txt'
+                )
+
+                assert fastqcData.exists()
+
+                def contents = fastqcData.text
+
+                assert contents.contains('sample1_R1')
+                assert contents.contains('sample1_R2')
+            }
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(get(0))
+
+                assert versions.exists()
+                assert versions.text.contains('multiqc:')
+            }
+        }
+    }
+}
