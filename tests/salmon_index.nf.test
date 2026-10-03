@@ -1,0 +1,256 @@
+/*
+ * Process-level contract tests for SALMON_INDEX.
+ *
+ * These tests run in Nextflow stub mode:
+ *   - Salmon itself is not executed
+ *   - no container is required
+ *   - index output structure and metadata propagation are tested
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-salmon-index"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+/*
+ * Keep sequences longer than Salmon's default k-mer length of 31.
+ */
+def transcriptFasta = new File(
+    fixtureDir,
+    "transcripts.fa.gz"
+)
+
+writeGzip(
+    transcriptFasta,
+    """\
+>tx1
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
+>tx2
+TGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCA
+""".stripIndent()
+)
+
+
+def genomeFasta = new File(
+    fixtureDir,
+    "genome.fa.gz"
+)
+
+writeGzip(
+    genomeFasta,
+    """\
+>chr1
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
+""".stripIndent()
+)
+
+
+nextflow_process {
+
+    name "Test SALMON_INDEX"
+    tag "ci"
+
+    script "../modules/local/salmon_index/main.nf"
+    process "SALMON_INDEX"
+
+    options "-stub-run"
+
+
+    test("Should create a Salmon index") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            species: 'Mus musculus',
+                            assembly: 'GRCm39',
+                            assembly_version: 'GRCm39',
+                            assembly_accession: 'GCA_000001635.9',
+                            source: 'Ensembl',
+                            release: 116
+                        ],
+                        file(
+                            '${transcriptFasta.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${genomeFasta.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+
+                assert indexDir.name == 'salmon_index'
+                assert indexDir.isDirectory()
+
+                def info = new File(
+                    indexDir,
+                    'info.json'
+                )
+
+                assert info.exists()
+                assert info.length() > 0
+
+                assert new File(
+                    indexDir,
+                    'refseq.bin'
+                ).exists()
+            }
+        }
+    }
+
+
+    test("Should preserve all reference metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'human',
+                            species: 'Homo sapiens',
+                            assembly: 'GRCh38',
+                            assembly_version: 'GRCh38.p14',
+                            assembly_accession: 'GCA_000001405.29',
+                            source: 'Ensembl',
+                            release: 116,
+                            custom_field: 'preserved'
+                        ],
+                        file(
+                            '${transcriptFasta.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${genomeFasta.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.index) {
+
+                assert size() == 1
+
+                def reference = get(0)[0]
+
+                assert reference.id == 'human'
+                assert reference.species == 'Homo sapiens'
+                assert reference.assembly == 'GRCh38'
+                assert reference.assembly_version ==
+                    'GRCh38.p14'
+                assert reference.assembly_accession ==
+                    'GCA_000001405.29'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+                assert reference.custom_field ==
+                    'preserved'
+            }
+        }
+    }
+
+
+    test("Should emit the Salmon version") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            assembly: 'GRCm39'
+                        ],
+                        file(
+                            '${transcriptFasta.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${genomeFasta.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(
+                    get(0)
+                ).toFile()
+
+                assert versions.exists()
+
+                assert versions.text.contains(
+                    'salmon: "2.7.0"'
+                )
+            }
+        }
+    }
+}
