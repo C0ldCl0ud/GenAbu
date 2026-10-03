@@ -330,5 +330,27 @@ class ResolveAccessionsTests(unittest.TestCase):
             # Invalid configuration should fail before any resolution work.
             read_accessions.assert_not_called()
 
+    def test_ffq_metadata_lookup_does_not_request_ftp_links(self):
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='[{"accession":"SRR1"}]',
+            stderr="",
+        )
+
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append(command)
+            return completed
+
+        runs = RESOLVER.fetch_ffq_runs(
+            "GSE223541",
+            runner=runner,
+        )
+
+        self.assertEqual(calls, [["ffq", "GSE223541"]])
+        self.assertEqual(runs, ["SRR1"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -172,7 +172,7 @@ def fetch_ffq_runs(
     """Use ffq to follow a GEO accession to run accessions."""
     try:
         completed = runner(
-            ["ffq", "--ftp", accession],
+            ["ffq", accession],
             check=False,
             capture_output=True,
             text=True,
@@ -206,12 +206,7 @@ def resolve_one(
     accession = record["accession"]
 
     if GEO_PATTERN.fullmatch(accession):
-        ffq_error: ResolutionError | None = None
-        try:
-            run_accessions = ffq_fetcher(accession)
-        except ResolutionError as error:
-            ffq_error = error
-            run_accessions = []
+        run_accessions = ffq_fetcher(accession)
 
         rows: list[dict[str, str]] = []
         for run_accession in run_accessions:
@@ -220,16 +215,8 @@ def resolve_one(
         if rows:
             return rows, "ffq+ena"
 
-        # ENA does not normally index GEO series identifiers directly, but this
-        # final request is inexpensive and covers cross-repository aliases.
-        ena_rows = ena_fetcher(accession)
-        if ena_rows:
-            return ena_rows, "ena"
-
-        if ffq_error is not None:
-            raise ffq_error
         raise ResolutionError(
-            f"ffq and ENA returned no sequencing runs for {accession}"
+            f"ffq returned no sequencing runs for {accession}"
         )
 
     ena_rows = ena_fetcher(accession)
