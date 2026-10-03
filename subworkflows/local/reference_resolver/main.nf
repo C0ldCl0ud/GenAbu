@@ -149,7 +149,8 @@ workflow REFERENCE_RESOLVER {
                 genome_file.length() > 0 &&
                 gtf_file.isFile() &&
                 gtf_file.length() > 0 &&
-                manifest_file.isFile()
+                manifest_file.isFile() &&
+                manifest_file.length() > 0
 
             log.info(
                 "Reference '${requested_genome}' resolved to " +

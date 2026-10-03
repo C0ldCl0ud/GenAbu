@@ -7,8 +7,14 @@
  *   - no network access is required
  *
  * Contract:
+ *
  *   input:
- *     tuple(reference, genome FASTA, GTF)
+ *     tuple(
+ *       reference,
+ *       genome FASTA,
+ *       GTF,
+ *       transcript cache directory
+ *     )
  *
  *   output:
  *     tuple(reference, transcripts.fa.gz)
@@ -61,10 +67,7 @@ def readGzip = { File target ->
 
 
 /*
- * Fixtures intentionally mirror REFERENCE_RESOLVER output:
- *
- *   genome.fa.gz
- *   genes.gtf.gz
+ * Fixtures intentionally mirror REFERENCE_RESOLVER output.
  */
 def genome = new File(
     fixtureDir,
@@ -90,6 +93,14 @@ chr1\tGenAbu\texon\t1\t4\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_nu
 chr1\tGenAbu\texon\t9\t12\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_number "2";
 """.stripIndent()
 )
+
+
+def transcriptCache = new File(
+    fixtureDir,
+    "transcript-cache"
+)
+
+transcriptCache.mkdirs()
 
 
 nextflow_process {
@@ -126,7 +137,8 @@ nextflow_process {
                         file(
                             '${gtf.canonicalPath}',
                             checkIfExists: true
-                        )
+                        ),
+                        '${transcriptCache.canonicalPath}'
                     )
                 )
                 """
@@ -145,6 +157,7 @@ nextflow_process {
                 def result = get(0)
 
                 def reference = result[0]
+
                 def transcriptFile = path(
                     result[1]
                 ).toFile()
@@ -161,8 +174,7 @@ nextflow_process {
                 assert transcriptFile.length() > 0
 
                 /*
-                 * Verify that the stub emits a real gzip file,
-                 * not plain text with a .gz suffix.
+                 * The stub must emit a real gzip file.
                  */
                 def contents = readGzip(
                     transcriptFile
@@ -204,7 +216,8 @@ nextflow_process {
                         file(
                             '${gtf.canonicalPath}',
                             checkIfExists: true
-                        )
+                        ),
+                        '${transcriptCache.canonicalPath}'
                     )
                 )
                 """
@@ -255,7 +268,8 @@ nextflow_process {
                         file(
                             '${gtf.canonicalPath}',
                             checkIfExists: true
-                        )
+                        ),
+                        '${transcriptCache.canonicalPath}'
                     )
                 )
                 """

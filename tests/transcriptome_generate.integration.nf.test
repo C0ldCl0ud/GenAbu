@@ -1,8 +1,11 @@
 /*
  * Real integration test for TRANSCRIPTOME_GENERATE.
  *
- * A tiny synthetic genome and annotation are used so that the expected
+ * A tiny synthetic genome and annotation are used so the expected
  * transcript sequences are known exactly.
+ *
+ * This also verifies that transcripts.fa.gz is persisted into the
+ * supplied transcript cache directory.
  *
  * Run with:
  *
@@ -56,18 +59,6 @@ def readGzip = { File target ->
 }
 
 
-/*
- * Parse FASTA into:
- *
- * [
- *     tx1: 'AAAAGGGG',
- *     tx2: 'GCTTACGT'
- * ]
- *
- * Only the first whitespace-delimited value of the FASTA header is
- * treated as the transcript identifier because GffRead may append
- * additional metadata to the header.
- */
 def parseFasta = { String contents ->
 
     def sequences = [:]
@@ -100,35 +91,21 @@ def parseFasta = { String contents ->
 /*
  * Synthetic genome:
  *
- * positions
+ * positions:
  *
- *  1-4    AAAA
- *  5-8    CCCC
- *  9-12   GGGG
- * 13-16   TTTT
- * 17-20   ACGT
- * 21-24   AAGC
+ *   1-4    AAAA
+ *   5-8    CCCC
+ *   9-12   GGGG
+ *   13-16  TTTT
+ *   17-20  ACGT
+ *   21-24  AAGC
  *
+ * tx1 (+):
+ *   AAAA + GGGG = AAAAGGGG
  *
- * tx1 (+ strand):
- *
- * exon 1 = positions 1-4   = AAAA
- * exon 2 = positions 9-12  = GGGG
- *
- * expected transcript:
- *
- * AAAAGGGG
- *
- *
- * tx2 (- strand):
- *
- * exons cover positions 17-24:
- *
- * genomic sequence = ACGTAAGC
- *
- * reverse complement:
- *
- * GCTTACGT
+ * tx2 (-):
+ *   genomic ACGTAAGC
+ *   reverse complement = GCTTACGT
  */
 def genome = new File(
     fixtureDir,
@@ -159,6 +136,14 @@ chr1\tGenAbu\texon\t21\t24\t.\t-\t.\tgene_id "gene2"; transcript_id "tx2"; exon_
 )
 
 
+def transcriptCache = new File(
+    fixtureDir,
+    "transcript-cache"
+)
+
+transcriptCache.mkdirs()
+
+
 nextflow_process {
 
     name "Test TRANSCRIPTOME_GENERATE integration"
@@ -168,7 +153,7 @@ nextflow_process {
     process "TRANSCRIPTOME_GENERATE"
 
 
-    test("Should reconstruct the expected transcript sequences") {
+    test("Should reconstruct and cache the expected transcript sequences") {
 
         when {
             process {
@@ -189,7 +174,8 @@ nextflow_process {
                         file(
                             '${gtf.canonicalPath}',
                             checkIfExists: true
-                        )
+                        ),
+                        '${transcriptCache.canonicalPath}'
                     )
                 )
                 """
@@ -233,27 +219,41 @@ nextflow_process {
                 )
 
 
-                /*
-                 * Positive-strand splicing:
-                 *
-                 * AAAA + GGGG
-                 */
                 assert sequences['tx1'] ==
                     'AAAAGGGG'
 
-
-                /*
-                 * Negative-strand transcript:
-                 *
-                 * genomic ACGTAAGC
-                 * reverse complement GCTTACGT
-                 */
                 assert sequences['tx2'] ==
                     'GCTTACGT'
 
-
                 assert sequences.size() == 2
             }
+
+
+            /*
+             * The generated transcriptome must also have been persisted
+             * into the supplied cache directory.
+             */
+            def cachedTranscript = new File(
+                transcriptCache,
+                'transcripts.fa.gz'
+            )
+
+            assert cachedTranscript.exists()
+            assert cachedTranscript.length() > 0
+
+            def cachedContents = readGzip(
+                cachedTranscript
+            )
+
+            def cachedSequences = parseFasta(
+                cachedContents
+            )
+
+            assert cachedSequences['tx1'] ==
+                'AAAAGGGG'
+
+            assert cachedSequences['tx2'] ==
+                'GCTTACGT'
 
 
             with(process.out.versions) {

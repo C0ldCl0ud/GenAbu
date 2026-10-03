@@ -5,10 +5,18 @@ process SALMON_INDEX {
 
     container 'community.wave.seqera.io/library/salmon:2.7.0--74784226202c61b9'
 
+    publishDir {
+        salmon_cache_dir
+    },
+        mode: 'copy',
+        overwrite: true,
+        pattern: 'salmon_index'
+
     input:
     tuple val(reference),
           path(transcript_fasta),
-          path(genome_fasta)
+          path(genome_fasta),
+          val(salmon_cache_dir)
 
     output:
     tuple val(reference),
@@ -19,16 +27,6 @@ process SALMON_INDEX {
          emit: versions
 
     script:
-    /*
-     * Salmon receives an uncompressed gentrome:
-     *
-     *   transcripts
-     *   +
-     *   complete genome used as decoys
-     *
-     * Fixed local filenames make handling compressed and uncompressed
-     * input identical.
-     */
     def transcript_command = transcript_fasta.name.endsWith('.gz')
         ? "gunzip -c ${transcript_fasta} > transcripts.input.fa"
         : "cp ${transcript_fasta} transcripts.input.fa"
@@ -69,6 +67,8 @@ process SALMON_INDEX {
 
     test -d salmon_index
     test -s salmon_index/info.json
+    test -s salmon_index/refseq.bin
+    test -s salmon_index/refseq_offsets.json
 
     printf '"%s":\\n    salmon: "%s"\\n' \
         "${task.process}" \
@@ -83,8 +83,12 @@ process SALMON_INDEX {
     printf '{"stub": true}\\n' \
         > salmon_index/info.json
 
-    touch salmon_index/refseq.bin
-    touch salmon_index/refseq_offsets.json
+    printf 'stub\\n' \
+        > salmon_index/refseq.bin
+
+    printf '{}\\n' \
+        > salmon_index/refseq_offsets.json
+
     touch salmon_index/duplicate_clusters.tsv
     touch salmon_index/index.ctab
     touch salmon_index/index.ectab

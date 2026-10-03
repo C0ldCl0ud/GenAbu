@@ -5,10 +5,18 @@ process TRANSCRIPTOME_GENERATE {
 
     container 'quay.io/biocontainers/gffread:0.12.7--hdcf5f25_4'
 
+    publishDir {
+        transcript_cache_dir
+    },
+        mode: 'copy',
+        overwrite: true,
+        pattern: 'transcripts.fa.gz'
+
     input:
     tuple val(reference),
           path(genome_fasta),
-          path(gtf)
+          path(gtf),
+          val(transcript_cache_dir)
 
     output:
     tuple val(reference),
@@ -43,6 +51,7 @@ process TRANSCRIPTOME_GENERATE {
         > transcripts.fa.gz
 
     test -s transcripts.fa.gz
+    gzip -t transcripts.fa.gz
 
     printf '"%s":\\n    gffread: "%s"\\n' \
         "${task.process}" \

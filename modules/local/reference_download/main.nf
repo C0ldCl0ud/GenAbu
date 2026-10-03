@@ -15,7 +15,7 @@ process REFERENCE_DOWNLOAD {
         "${reference_cache}/${reference.source.toLowerCase()}/release-${reference.release}/${reference.id}-${reference.assembly}"
     },
         mode: 'copy',
-        overwrite: false
+        overwrite: true
 
     input:
     tuple val(reference), val(reference_cache)
@@ -50,8 +50,8 @@ process REFERENCE_DOWNLOAD {
         --output-document=genes.gtf.gz \
         "${reference.gtf_url}"
 
-    test -s genome.fa.gz
-    test -s genes.gtf.gz
+    gzip -t genome.fa.gz
+    gzip -t genes.gtf.gz
 
     cat > reference.yml <<'EOF'
 id: ${reference.id}
