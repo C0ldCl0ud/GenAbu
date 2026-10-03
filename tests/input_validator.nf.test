@@ -308,12 +308,11 @@ nextflow_workflow {
     test("Should accept a valid paired-end FASTQ samplesheet") {
 
         when {
-            params {
-                input = validPaired.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validPaired.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validPaired.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -330,12 +329,11 @@ nextflow_workflow {
     test("Should accept a valid single-end FASTQ samplesheet") {
 
         when {
-            params {
-                input = validSingle.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validSingle.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validSingle.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -352,12 +350,11 @@ nextflow_workflow {
     test("Should accept additional columns in a FASTQ samplesheet") {
 
         when {
-            params {
-                input = validFastqExtraColumns.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validFastqExtraColumns.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validFastqExtraColumns.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -373,12 +370,11 @@ nextflow_workflow {
     test("Should accept reordered FASTQ columns") {
 
         when {
-            params {
-                input = validFastqReorderedColumns.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validFastqReorderedColumns.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validFastqReorderedColumns.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -398,12 +394,11 @@ nextflow_workflow {
     test("Should accept a valid SRR accession") {
 
         when {
-            params {
-                input = validSrr.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validSrr.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validSrr.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -420,12 +415,11 @@ nextflow_workflow {
     test("Should accept a valid ERR accession") {
 
         when {
-            params {
-                input = validErr.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validErr.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validErr.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -441,12 +435,11 @@ nextflow_workflow {
     test("Should accept a valid DRR accession") {
 
         when {
-            params {
-                input = validDrr.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validDrr.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validDrr.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -462,12 +455,11 @@ nextflow_workflow {
     test("Should accept additional columns in an SRA samplesheet") {
 
         when {
-            params {
-                input = validSraExtraColumns.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validSraExtraColumns.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validSraExtraColumns.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -483,12 +475,11 @@ nextflow_workflow {
     test("Should accept reordered SRA columns") {
 
         when {
-            params {
-                input = validSraReorderedColumns.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${validSraReorderedColumns.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${validSraReorderedColumns.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -508,12 +499,11 @@ nextflow_workflow {
     test("Should reject a FASTQ samplesheet without the sample column") {
 
         when {
-            params {
-                input = missingSampleColumn.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${missingSampleColumn.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${missingSampleColumn.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -527,12 +517,11 @@ nextflow_workflow {
     test("Should reject a FASTQ samplesheet without the fastq_1 column") {
 
         when {
-            params {
-                input = missingFastq1Column.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${missingFastq1Column.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${missingFastq1Column.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -546,12 +535,11 @@ nextflow_workflow {
     test("Should reject a FASTQ samplesheet without the fastq_2 column") {
 
         when {
-            params {
-                input = missingFastq2Column.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${missingFastq2Column.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${missingFastq2Column.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -569,12 +557,11 @@ nextflow_workflow {
     test("Should reject an empty sample ID in a FASTQ samplesheet") {
 
         when {
-            params {
-                input = emptySample.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${emptySample.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${emptySample.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -588,12 +575,11 @@ nextflow_workflow {
     test("Should reject an empty fastq_1 value") {
 
         when {
-            params {
-                input = emptyFastq1.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${emptyFastq1.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${emptyFastq1.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -607,12 +593,11 @@ nextflow_workflow {
     test("Should reject whitespace in FASTQ sample IDs") {
 
         when {
-            params {
-                input = sampleWithWhitespace.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${sampleWithWhitespace.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${sampleWithWhitespace.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -626,12 +611,11 @@ nextflow_workflow {
     test("Should reject a nonexistent FASTQ file") {
 
         when {
-            params {
-                input = nonexistentFastq.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${nonexistentFastq.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${nonexistentFastq.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -645,12 +629,11 @@ nextflow_workflow {
     test("Should reject a FASTQ file with an invalid extension") {
 
         when {
-            params {
-                input = invalidFastqExtension.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${invalidFastqExtension.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${invalidFastqExtension.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -668,12 +651,11 @@ nextflow_workflow {
     test("Should reject an SRA samplesheet without the sample column") {
 
         when {
-            params {
-                input = sraMissingSampleColumn.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${sraMissingSampleColumn.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${sraMissingSampleColumn.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -687,12 +669,11 @@ nextflow_workflow {
     test("Should reject an SRA samplesheet without the accession column") {
 
         when {
-            params {
-                input = sraMissingAccessionColumn.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${sraMissingAccessionColumn.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${sraMissingAccessionColumn.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -710,12 +691,11 @@ nextflow_workflow {
     test("Should reject an empty SRA accession") {
 
         when {
-            params {
-                input = emptyAccession.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${emptyAccession.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${emptyAccession.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -729,12 +709,11 @@ nextflow_workflow {
     test("Should reject an unsupported SRA accession type") {
 
         when {
-            params {
-                input = unsupportedSraAccession.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${unsupportedSraAccession.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${unsupportedSraAccession.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -748,12 +727,11 @@ nextflow_workflow {
     test("Should reject a malformed SRA accession") {
 
         when {
-            params {
-                input = malformedSraAccession.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${malformedSraAccession.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${malformedSraAccession.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -767,12 +745,11 @@ nextflow_workflow {
     test("Should reject whitespace in SRA sample IDs") {
 
         when {
-            params {
-                input = sraSampleWithWhitespace.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${sraSampleWithWhitespace.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${sraSampleWithWhitespace.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -790,12 +767,11 @@ nextflow_workflow {
     test("Should reject a samplesheet containing both FASTQ and SRA columns") {
 
         when {
-            params {
-                input = ambiguousInput.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${ambiguousInput.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${ambiguousInput.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -809,12 +785,11 @@ nextflow_workflow {
     test("Should reject a samplesheet with an unknown input format") {
 
         when {
-            params {
-                input = unknownInput.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${unknownInput.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${unknownInput.canonicalPath}', checkIfExists: true)
+                )
                 """
             }
         }
@@ -832,12 +807,11 @@ nextflow_workflow {
     test("Should reject a nonexistent samplesheet") {
 
         when {
-            params {
-                input = nonexistentSamplesheet.canonicalPath
-            }
             workflow {
                 """
-                input[0] = "${nonexistentSamplesheet.canonicalPath}"
+                input[0] = Channel.of(
+                    file('${nonexistentSamplesheet.canonicalPath}', checkIfExists: false)
+                )
                 """
             }
         }

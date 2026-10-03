@@ -1,0 +1,130 @@
+/*
+ * Real integration test for PAPER_ACCESSIONS.
+ *
+ * The python:3.12-slim container does not provide the procps package used
+ * by nf-test tracing. Run this test without trace collection:
+ *
+ *   nf-test test tests/paper_accessions.integration.nf.test \
+ *       --profile docker \
+ *       --without-trace
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-paper-accessions-integration-v2"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeMinimalPdf = { String filename ->
+
+    def file = new File(fixtureDir, filename)
+    def header = "%" + "PDF-1.4\n"
+    def streamContent =
+        "BT /F1 12 Tf 20 100 Td (GenAbu paper GSE123456) Tj ET\n"
+
+    def objects = [
+        """1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+""",
+        """2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+""",
+        """3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+""",
+        """4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+""",
+        """5 0 obj
+<< /Length ${streamContent.getBytes("UTF-8").length} >>
+stream
+${streamContent}endstream
+endobj
+"""
+    ]
+
+    def pdf = new StringBuilder(header)
+    def offsets = []
+
+    objects.each { object ->
+        offsets << pdf.toString().getBytes("UTF-8").length
+        pdf.append(object)
+    }
+
+    def xrefOffset = pdf.toString().getBytes("UTF-8").length
+
+    pdf.append("xref\n")
+    pdf.append("0 ${objects.size() + 1}\n")
+    pdf.append("0000000000 65535 f \n")
+
+    offsets.each { offset ->
+        pdf.append(String.format("%010d 00000 n \n", offset))
+    }
+
+    pdf.append("""trailer
+<< /Size ${objects.size() + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+""")
+
+    file.setText(pdf.toString(), "UTF-8")
+    file
+}
+
+
+def paper = makeMinimalPdf("paper.pdf")
+
+
+nextflow_workflow {
+
+    name "Test PAPER_ACCESSIONS integration v2"
+    tag "integration"
+
+    script "../subworkflows/local/paper_accessions/main.nf"
+    workflow "PAPER_ACCESSIONS"
+
+
+    test("Should extract a GEO accession from a real PDF") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    file('${paper.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            with(workflow.out.text) {
+                assert size() == 1
+                assert path(get(0)).readLines().join('\n').contains(
+                    'GenAbu paper GSE123456'
+                )
+            }
+
+            with(workflow.out.accessions) {
+                assert size() == 1
+
+                def lines = path(get(0)).readLines()
+
+                assert lines == [
+                    'accession\trepository\taccession_type\tsource_file',
+                    'GSE123456\tGEO\tseries\tpaper.txt'
+                ]
+            }
+        }
+    }
+}
