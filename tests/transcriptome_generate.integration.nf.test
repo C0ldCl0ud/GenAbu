@@ -1,0 +1,274 @@
+/*
+ * Real integration test for TRANSCRIPTOME_GENERATE.
+ *
+ * A tiny synthetic genome and annotation are used so that the expected
+ * transcript sequences are known exactly.
+ *
+ * Run with:
+ *
+ *   nf-test test \
+ *       tests/transcriptome_generate.integration.nf.test \
+ *       --profile docker
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-transcriptome-generate-integration"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+def readGzip = { File target ->
+
+    def input = new java.util.zip.GZIPInputStream(
+        new java.io.FileInputStream(target)
+    )
+
+    try {
+        return input.getText("UTF-8")
+    }
+    finally {
+        input.close()
+    }
+}
+
+
+/*
+ * Parse FASTA into:
+ *
+ * [
+ *     tx1: 'AAAAGGGG',
+ *     tx2: 'GCTTACGT'
+ * ]
+ *
+ * Only the first whitespace-delimited value of the FASTA header is
+ * treated as the transcript identifier because GffRead may append
+ * additional metadata to the header.
+ */
+def parseFasta = { String contents ->
+
+    def sequences = [:]
+    def currentId = null
+
+    contents.readLines().each { line ->
+
+        if (line.startsWith('>')) {
+
+            currentId = line
+                .substring(1)
+                .trim()
+                .split(/\s+/)[0]
+
+            sequences[currentId] = ''
+        }
+        else if (
+            currentId != null &&
+            !line.trim().isEmpty()
+        ) {
+            sequences[currentId] +=
+                line.trim()
+        }
+    }
+
+    sequences
+}
+
+
+/*
+ * Synthetic genome:
+ *
+ * positions
+ *
+ *  1-4    AAAA
+ *  5-8    CCCC
+ *  9-12   GGGG
+ * 13-16   TTTT
+ * 17-20   ACGT
+ * 21-24   AAGC
+ *
+ *
+ * tx1 (+ strand):
+ *
+ * exon 1 = positions 1-4   = AAAA
+ * exon 2 = positions 9-12  = GGGG
+ *
+ * expected transcript:
+ *
+ * AAAAGGGG
+ *
+ *
+ * tx2 (- strand):
+ *
+ * exons cover positions 17-24:
+ *
+ * genomic sequence = ACGTAAGC
+ *
+ * reverse complement:
+ *
+ * GCTTACGT
+ */
+def genome = new File(
+    fixtureDir,
+    "genome.fa.gz"
+)
+
+writeGzip(
+    genome,
+    ">chr1\nAAAACCCCGGGGTTTTACGTAAGC\n"
+)
+
+
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf.gz"
+)
+
+writeGzip(
+    gtf,
+    """\
+chr1\tGenAbu\ttranscript\t1\t12\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t4\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_number "1";
+chr1\tGenAbu\texon\t9\t12\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_number "2";
+chr1\tGenAbu\ttranscript\t17\t24\t.\t-\t.\tgene_id "gene2"; transcript_id "tx2";
+chr1\tGenAbu\texon\t17\t20\t.\t-\t.\tgene_id "gene2"; transcript_id "tx2"; exon_number "2";
+chr1\tGenAbu\texon\t21\t24\t.\t-\t.\tgene_id "gene2"; transcript_id "tx2"; exon_number "1";
+""".stripIndent()
+)
+
+
+nextflow_process {
+
+    name "Test TRANSCRIPTOME_GENERATE integration"
+    tag "integration"
+
+    script "../modules/local/transcriptome_generate/main.nf"
+    process "TRANSCRIPTOME_GENERATE"
+
+
+    test("Should reconstruct the expected transcript sequences") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'synthetic',
+                            species: 'Synthetic test',
+                            assembly: 'test1',
+                            source: 'GenAbu',
+                            release: 1
+                        ],
+                        file(
+                            '${genome.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+
+            with(process.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                def transcriptFile = path(
+                    result[1]
+                ).toFile()
+
+                assert reference.id ==
+                    'synthetic'
+
+                assert transcriptFile.name ==
+                    'transcripts.fa.gz'
+
+                assert transcriptFile.exists()
+                assert transcriptFile.length() > 0
+
+
+                def contents = readGzip(
+                    transcriptFile
+                )
+
+                def sequences = parseFasta(
+                    contents
+                )
+
+
+                /*
+                 * Positive-strand splicing:
+                 *
+                 * AAAA + GGGG
+                 */
+                assert sequences['tx1'] ==
+                    'AAAAGGGG'
+
+
+                /*
+                 * Negative-strand transcript:
+                 *
+                 * genomic ACGTAAGC
+                 * reverse complement GCTTACGT
+                 */
+                assert sequences['tx2'] ==
+                    'GCTTACGT'
+
+
+                assert sequences.size() == 2
+            }
+
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(
+                    get(0)
+                ).toFile()
+
+                assert versions.exists()
+                assert versions.text.contains(
+                    'gffread:'
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,284 @@
+/*
+ * Process-level contract tests for TRANSCRIPTOME_GENERATE.
+ *
+ * These tests use Nextflow stub mode:
+ *   - no GffRead installation is required
+ *   - no real transcript reconstruction is performed
+ *   - no network access is required
+ *
+ * Contract:
+ *   input:
+ *     tuple(reference, genome FASTA, GTF)
+ *
+ *   output:
+ *     tuple(reference, transcripts.fa.gz)
+ *     versions.yml
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-transcriptome-generate"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+def readGzip = { File target ->
+
+    def input = new java.util.zip.GZIPInputStream(
+        new java.io.FileInputStream(target)
+    )
+
+    try {
+        return input.getText("UTF-8")
+    }
+    finally {
+        input.close()
+    }
+}
+
+
+/*
+ * Fixtures intentionally mirror REFERENCE_RESOLVER output:
+ *
+ *   genome.fa.gz
+ *   genes.gtf.gz
+ */
+def genome = new File(
+    fixtureDir,
+    "genome.fa.gz"
+)
+
+writeGzip(
+    genome,
+    ">chr1\nAAAACCCCGGGGTTTT\n"
+)
+
+
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf.gz"
+)
+
+writeGzip(
+    gtf,
+    """\
+chr1\tGenAbu\ttranscript\t1\t12\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t4\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_number "1";
+chr1\tGenAbu\texon\t9\t12\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1"; exon_number "2";
+""".stripIndent()
+)
+
+
+nextflow_process {
+
+    name "Test TRANSCRIPTOME_GENERATE"
+    tag "ci"
+
+    script "../modules/local/transcriptome_generate/main.nf"
+    process "TRANSCRIPTOME_GENERATE"
+
+    options "-stub-run"
+
+
+    test("Should create a compressed transcript FASTA") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            species: 'Mus musculus',
+                            assembly: 'GRCm39',
+                            assembly_version: 'GRCm39',
+                            assembly_accession: 'GCA_000001635.9',
+                            source: 'Ensembl',
+                            release: 116
+                        ],
+                        file(
+                            '${genome.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+                def transcriptFile = path(
+                    result[1]
+                ).toFile()
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+
+                assert transcriptFile.name ==
+                    'transcripts.fa.gz'
+
+                assert transcriptFile.exists()
+                assert transcriptFile.length() > 0
+
+                /*
+                 * Verify that the stub emits a real gzip file,
+                 * not plain text with a .gz suffix.
+                 */
+                def contents = readGzip(
+                    transcriptFile
+                )
+
+                assert contents.contains(
+                    '>ENSTUB000001'
+                )
+
+                assert contents.contains(
+                    'ACGTACGT'
+                )
+            }
+        }
+    }
+
+
+    test("Should preserve reference metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'human',
+                            species: 'Homo sapiens',
+                            assembly: 'GRCh38',
+                            assembly_version: 'GRCh38.p14',
+                            assembly_accession: 'GCA_000001405.29',
+                            source: 'Ensembl',
+                            release: 116,
+                            custom_field: 'preserved'
+                        ],
+                        file(
+                            '${genome.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def reference = get(0)[0]
+
+                assert reference.id == 'human'
+                assert reference.species == 'Homo sapiens'
+                assert reference.assembly == 'GRCh38'
+                assert reference.assembly_version ==
+                    'GRCh38.p14'
+                assert reference.assembly_accession ==
+                    'GCA_000001405.29'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+                assert reference.custom_field ==
+                    'preserved'
+            }
+        }
+    }
+
+
+    test("Should emit the GffRead version") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            species: 'Mus musculus',
+                            assembly: 'GRCm39'
+                        ],
+                        file(
+                            '${genome.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(
+                    get(0)
+                ).toFile()
+
+                assert versions.exists()
+
+                assert versions.text.contains(
+                    'gffread: "0.12.7"'
+                )
+            }
+        }
+    }
+}
