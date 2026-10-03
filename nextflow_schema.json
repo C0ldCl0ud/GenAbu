@@ -16,11 +16,33 @@
             "description": "Resolve paper accessions and stop before SRA download."
         },
         "max_runs": {
-        "type": "integer",
-        "minimum": 1,
-        "default": 20,
-        "description": "Maximum number of sequencing runs to resolve from a paper."
-    }
+            "type": "integer",
+            "minimum": 1,
+            "default": 20,
+            "description": "Maximum number of sequencing runs to resolve from a paper."
+        },
+        "adapter_r1": {
+            "type": "string",
+            "default": "AGATCGGAAGAGC",
+            "description": "3' adapter sequence trimmed from read 1 by Cutadapt."
+        },
+        "adapter_r2": {
+            "type": "string",
+            "default": "AGATCGGAAGAGC",
+            "description": "3' adapter sequence trimmed from read 2 by Cutadapt."
+        },
+        "quality_cutoff": {
+            "type": "integer",
+            "default": 20,
+            "minimum": 0,
+            "description": "Phred quality cutoff used by Cutadapt for quality trimming."
+        },
+        "minimum_length": {
+            "type": "integer",
+            "default": 20,
+            "minimum": 0,
+            "description": "Minimum read length retained after trimming."
+        }
     },
 
     "required": [

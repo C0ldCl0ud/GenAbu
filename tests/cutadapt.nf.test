@@ -1,0 +1,421 @@
+/*
+ * Process-level tests for CUTADAPT.
+ *
+ * These tests use Nextflow stub mode:
+ *   - no Cutadapt installation is required
+ *   - no real trimming is performed
+ *   - no network access is required
+ *
+ * Contract:
+ *   input  = tuple(meta, [1 or 2 FASTQ files])
+ *            + adapter configuration
+ *            + quality cutoff
+ *            + minimum read length
+ *
+ *   output = trimmed FASTQ files
+ *            + Cutadapt JSON report
+ *            + Cutadapt log
+ *            + versions.yml
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-cutadapt"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeFastq = { String filename ->
+
+    def file = new File(
+        fixtureDir,
+        filename
+    )
+
+    file.text = """\
+@read1
+ACGTACGTACGT
++
+IIIIIIIIIIII
+""".stripIndent()
+
+    file
+}
+
+
+def singleRead = makeFastq(
+    "single.fastq.gz"
+)
+
+def pairedRead1 = makeFastq(
+    "paired_R1.fastq.gz"
+)
+
+def pairedRead2 = makeFastq(
+    "paired_R2.fastq.gz"
+)
+
+def thirdRead = makeFastq(
+    "unexpected_R3.fastq.gz"
+)
+
+
+nextflow_process {
+
+    name "Test CUTADAPT"
+    tag "ci"
+
+    script "../modules/local/cutadapt/main.nf"
+    process "CUTADAPT"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Paired-end input
+    // =========================================================================
+
+    test("Should create paired-end trimmed FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+
+                input[1] = [
+                    r1: 'AGATCGGAAGAGC',
+                    r2: 'AGATCGGAAGAGC'
+                ]
+
+                input[2] = 20
+                input[3] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'sample1'
+                assert result[0].single_end == false
+
+                def files = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.size() == 2
+
+                def filenames = files.collect {
+                    new File(it.toString()).name
+                }.sort()
+
+                assert filenames == [
+                    'sample1_R1.trimmed.fastq.gz',
+                    'sample1_R2.trimmed.fastq.gz'
+                ]
+            }
+
+            with(process.out.report) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'sample1'
+
+                assert new File(
+                    result[1].toString()
+                ).name == 'sample1.cutadapt.json'
+            }
+
+            with(process.out.log) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'sample1'
+
+                assert new File(
+                    result[1].toString()
+                ).name == 'sample1.cutadapt.log'
+            }
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(get(0)).toFile()
+
+                assert versions.exists()
+
+                assert versions.readLines().any {
+                    it.contains('cutadapt: "5.2"')
+                }
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Single-end input
+    // =========================================================================
+
+    test("Should create a single trimmed FASTQ file") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${singleRead.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+
+                input[1] = [
+                    r1: 'AGATCGGAAGAGC',
+                    r2: 'AGATCGGAAGAGC'
+                ]
+
+                input[2] = 20
+                input[3] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+            with(process.out.reads) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'sample1'
+                assert result[0].single_end == true
+
+                def files = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.size() == 1
+
+                assert new File(
+                    files[0].toString()
+                ).name == 'sample1.trimmed.fastq.gz'
+            }
+
+            with(process.out.report) {
+
+                assert size() == 1
+
+                assert new File(
+                    get(0)[1].toString()
+                ).name == 'sample1.cutadapt.json'
+            }
+
+            with(process.out.log) {
+
+                assert size() == 1
+
+                assert new File(
+                    get(0)[1].toString()
+                ).name == 'sample1.cutadapt.log'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Metadata
+    // =========================================================================
+
+    test("Should preserve sample metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false,
+                            condition: 'treated',
+                            batch: 'batch1'
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+
+                input[1] = [
+                    r1: 'AGATCGGAAGAGC',
+                    r2: 'AGATCGGAAGAGC'
+                ]
+
+                input[2] = 20
+                input[3] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.reads) {
+
+                def meta = get(0)[0]
+
+                assert meta.id == 'sample1'
+                assert meta.single_end == false
+                assert meta.condition == 'treated'
+                assert meta.batch == 'batch1'
+            }
+
+            with(process.out.report) {
+                assert get(0)[0].condition == 'treated'
+            }
+
+            with(process.out.log) {
+                assert get(0)[0].batch == 'batch1'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Invalid input contract
+    // =========================================================================
+
+    test("Should reject more than two FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${thirdRead.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+
+                input[1] = [
+                    r1: 'AGATCGGAAGAGC',
+                    r2: 'AGATCGGAAGAGC'
+                ]
+
+                input[2] = 20
+                input[3] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+
+
+    test("Should reject a single_end flag inconsistent with the read count") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+
+                input[1] = [
+                    r1: 'AGATCGGAAGAGC',
+                    r2: 'AGATCGGAAGAGC'
+                ]
+
+                input[2] = 20
+                input[3] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+}
