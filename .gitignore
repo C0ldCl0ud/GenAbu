@@ -4,11 +4,19 @@
 #Nextflow
 .nextflow
 work
+results/
 .nextflow.log*
 
 #nf-test
 .nf-test
-.nf-test.log*
+.nf-test*.*
 
 #Obsidian config
 Information/.obsidian
+
+#patches
+*.patch
+
+# Python
+__pycache__/
+*.py[cod]

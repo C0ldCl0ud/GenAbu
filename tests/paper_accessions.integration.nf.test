@@ -1,0 +1,145 @@
+/*
+ * Real integration test for PAPER_ACCESSIONS.
+ *
+ * Run with:
+ *   nf-test test tests/paper_accessions_integration.nf.test \
+ *       --profile docker \
+ *       --without-trace
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-paper-accessions-integration"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeMinimalPdf = { String filename ->
+
+    def file = new File(fixtureDir, filename)
+    def header = "%" + "PDF-1.4\n"
+    def streamContent =
+        "BT /F1 12 Tf 20 100 Td (GenAbu paper SRR10668798) Tj ET\n"
+
+    def objects = [
+        """1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+""",
+        """2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+""",
+        """3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+""",
+        """4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+""",
+        """5 0 obj
+<< /Length ${streamContent.getBytes("UTF-8").length} >>
+stream
+${streamContent}endstream
+endobj
+"""
+    ]
+
+    def pdf = new StringBuilder(header)
+    def offsets = []
+
+    objects.each { object ->
+        offsets << pdf.toString().getBytes("UTF-8").length
+        pdf.append(object)
+    }
+
+    def xrefOffset = pdf.toString().getBytes("UTF-8").length
+
+    pdf.append("xref\n")
+    pdf.append("0 ${objects.size() + 1}\n")
+    pdf.append("0000000000 65535 f \n")
+
+    offsets.each { offset ->
+        pdf.append(String.format("%010d 00000 n \n", offset))
+    }
+
+    pdf.append("""trailer
+<< /Size ${objects.size() + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+""")
+
+    file.setText(pdf.toString(), "UTF-8")
+    file
+}
+
+
+def paper = makeMinimalPdf("paper.pdf")
+
+
+nextflow_workflow {
+
+    name "Test PAPER_ACCESSIONS integration"
+    tag "integration"
+
+    script "../subworkflows/local/paper_accessions/main.nf"
+    workflow "PAPER_ACCESSIONS"
+
+
+    test("Should extract and resolve an SRA run from a real PDF") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    file('${paper.canonicalPath}', checkIfExists: true)
+                )
+                input[1] = 20
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            with(workflow.out.text) {
+                assert size() == 1
+                assert path(get(0)).readLines().join('\n').contains(
+                    'GenAbu paper SRR10668798'
+                )
+            }
+
+            with(workflow.out.accessions) {
+                assert size() == 1
+
+                def lines = path(get(0)).readLines()
+
+                assert lines == [
+                    'accession\trepository\taccession_type\tsource_file',
+                    'SRR10668798\tSRA\trun\tpaper.txt'
+                ]
+            }
+
+            with(workflow.out.resolved) {
+                assert size() == 1
+                assert path(get(0)).readLines().drop(1).size() == 1
+                assert path(get(0)).text.contains('SRR10668798')
+            }
+
+            with(workflow.out.samplesheet) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR10668798,SRR10668798'
+                ]
+            }
+
+            assert workflow.out.sra.size() == 1
+        }
+    }
+}

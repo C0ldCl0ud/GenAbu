@@ -1,0 +1,204 @@
+/*
+ * Real process tests for ACCESSION_EXTRACTOR.
+ *
+ * These tests execute the Python extractor. They do not use stub mode.
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-accession-extractor"
+)
+
+fixtureDir.mkdirs()
+
+
+def makeTextFile = { String filename, String content ->
+    def file = new File(fixtureDir, filename)
+    file.setText(content, "UTF-8")
+    file
+}
+
+
+def single = makeTextFile(
+    "single.txt",
+    "The data are available from GEO under accession GSE123456.\n"
+)
+
+def duplicates = makeTextFile(
+    "duplicates.txt",
+    "GSE123456 was deposited as gse123456 and GSE123456.\n"
+)
+
+def mixed = makeTextFile(
+    "mixed.txt",
+    "Studies SRP000001, ERP000002, and DRP000003; " +
+        "projects PRJNA4, PRJEB5, and PRJDB6; " +
+        "runs SRR7, ERR8, and DRR9.\n"
+)
+
+def invalid = makeTextFile(
+    "invalid.txt",
+    "Malformed or embedded values: GSE, SRPABC, XGSE123, " +
+        "GSE123X, PRJNA, and PRJNA12X.\n"
+)
+
+def absent = makeTextFile(
+    "absent.txt",
+    "This paper does not provide a supported data accession.\n"
+)
+
+
+nextflow_process {
+
+    name "Test ACCESSION_EXTRACTOR"
+    tag "ci"
+
+    script "../modules/local/accession_extractor/main.nf"
+    process "ACCESSION_EXTRACTOR"
+
+
+    test("Should extract one GEO series accession") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${single.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.accessions) {
+                assert size() == 1
+
+                def lines = new File(get(0).toString()).readLines("UTF-8")
+
+                assert lines == [
+                    "accession\trepository\taccession_type\tsource_file",
+                    "GSE123456\tGEO\tseries\tsingle.txt"
+                ]
+            }
+        }
+    }
+
+
+    test("Should normalize and deduplicate accessions") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${duplicates.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def lines = new File(
+                process.out.accessions.get(0).toString()
+            ).readLines("UTF-8")
+
+            assert lines == [
+                "accession\trepository\taccession_type\tsource_file",
+                "GSE123456\tGEO\tseries\tduplicates.txt"
+            ]
+        }
+    }
+
+
+    test("Should classify and sort mixed supported accessions") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${mixed.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def lines = new File(
+                process.out.accessions.get(0).toString()
+            ).readLines("UTF-8")
+
+            assert lines == [
+                "accession\trepository\taccession_type\tsource_file",
+                "DRP000003\tDRA\tstudy\tmixed.txt",
+                "DRR9\tDRA\trun\tmixed.txt",
+                "ERP000002\tENA\tstudy\tmixed.txt",
+                "ERR8\tENA\trun\tmixed.txt",
+                "PRJDB6\tBioProject\tproject\tmixed.txt",
+                "PRJEB5\tBioProject\tproject\tmixed.txt",
+                "PRJNA4\tBioProject\tproject\tmixed.txt",
+                "SRP000001\tSRA\tstudy\tmixed.txt",
+                "SRR7\tSRA\trun\tmixed.txt"
+            ]
+        }
+    }
+
+
+    test("Should reject malformed and embedded accessions") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${invalid.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def lines = new File(
+                process.out.accessions.get(0).toString()
+            ).readLines("UTF-8")
+
+            assert lines == [
+                "accession\trepository\taccession_type\tsource_file"
+            ]
+        }
+    }
+
+
+    test("Should emit a header-only table when no accession is present") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${absent.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def lines = new File(
+                process.out.accessions.get(0).toString()
+            ).readLines("UTF-8")
+
+            assert lines == [
+                "accession\trepository\taccession_type\tsource_file"
+            ]
+        }
+    }
+}

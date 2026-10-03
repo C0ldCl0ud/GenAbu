@@ -1,16 +1,32 @@
+include { INPUT_ROUTER }    from './subworkflows/local/input_router/main'
 include { INPUT_VALIDATOR } from './subworkflows/local/input_validator/main'
+include { PAPER_ACCESSIONS } from './subworkflows/local/paper_accessions/main'
 include { SRA_INPUT }       from './subworkflows/local/sra_input/main'
 include { FALCO }           from './modules/local/falco/main'
 
 
 workflow {
 
-    INPUT_VALIDATOR(params.input)
+    INPUT_ROUTER(params.input)
 
-    SRA_INPUT(INPUT_VALIDATOR.out.sra)
+    INPUT_VALIDATOR(INPUT_ROUTER.out.samplesheet)
+    PAPER_ACCESSIONS(
+        INPUT_ROUTER.out.paper,
+        params.max_runs
+    )
 
-    ch_reads = INPUT_VALIDATOR.out.fastq
-        .mix(SRA_INPUT.out.reads)
+    if (params.resolve_only) {
+        log.info('Resolve-only mode enabled: skipping SRA download and quality control.')
+    }
+    else {
+        ch_sra = INPUT_VALIDATOR.out.sra
+            .mix(PAPER_ACCESSIONS.out.sra)
 
-    FALCO(ch_reads)
+        SRA_INPUT(ch_sra)
+
+        ch_reads = INPUT_VALIDATOR.out.fastq
+            .mix(SRA_INPUT.out.reads)
+
+        FALCO(ch_reads)
+    }
 }

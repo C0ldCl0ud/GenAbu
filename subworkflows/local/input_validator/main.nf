@@ -1,4 +1,3 @@
-include { validateParameters } from 'plugin/nf-schema'
 include { samplesheetToList } from 'plugin/nf-schema'
 
 
@@ -77,32 +76,36 @@ workflow INPUT_VALIDATOR {
 
     main:
 
-    validateParameters()
+    typed_samplesheets = input.map { samplesheet ->
 
-    input_type = detectInputType(input)
+        def samplesheet_path = samplesheet.toString()
+        def input_type = detectInputType(samplesheet_path)
 
-    log.info("${input_type} as starting point detected.")
+        validateSamplesheetHeader(samplesheet_path)
 
-    validateSamplesheetHeader(input)
+        log.info("${input_type} as starting point detected.")
+        log.info("Input validation successful")
 
-    if (input_type == 'sra') {
+        tuple(input_type, samplesheet_path)
+    }
 
-        ch_sra = Channel.fromList(
+    ch_sra = typed_samplesheets
+        .filter { input_type, samplesheet -> input_type == 'sra' }
+        .flatMap { input_type, samplesheet ->
             samplesheetToList(
-                input,
+                samplesheet,
                 "${projectDir}/assets/schema_input_sra.json"
             )
-        )
-        ch_fastq = Channel.empty()
+        }
 
-    } else {
-
-        ch_fastq = Channel.fromList(
+    ch_fastq = typed_samplesheets
+        .filter { input_type, samplesheet -> input_type == 'fastq' }
+        .flatMap { input_type, samplesheet ->
             samplesheetToList(
-                input,
+                samplesheet,
                 "${projectDir}/assets/schema_input.json"
             )
-        )
+        }
         .map { meta, fastq_1, fastq_2 ->
 
             def reads = fastq_2
@@ -114,10 +117,6 @@ workflow INPUT_VALIDATOR {
                 reads
             )
         }
-        ch_sra = Channel.empty()
-    }
-
-    log.info "Input validation successful"
 
     emit:
     sra   = ch_sra

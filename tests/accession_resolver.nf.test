@@ -1,0 +1,92 @@
+/*
+ * Fast process-contract test for ACCESSION_RESOLVER.
+ *
+ * Stub mode verifies filenames and headers without network access or a
+ * container pull.
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-accession-resolver"
+)
+
+fixtureDir.mkdirs()
+
+def accessions = new File(fixtureDir, "paper.accessions.tsv")
+accessions.text = """\
+accession\trepository\taccession_type\tsource_file
+SRP000001\tSRA\tstudy\tpaper.txt
+""".stripIndent()
+
+
+nextflow_process {
+
+    name "Test ACCESSION_RESOLVER"
+    tag "ci"
+
+    script "../modules/local/accession_resolver/main.nf"
+    process "ACCESSION_RESOLVER"
+
+    options "-stub-run"
+
+
+    test("Should expose normalized and unresolved tables") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${accessions.canonicalPath}', checkIfExists: true)
+                )
+                input[1] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.resolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.resolved.tsv'
+                )
+                assert path(get(0)).readLines().size() == 2
+                assert path(get(0)).readLines().first().contains(
+                    'run_accession'
+                )
+                assert path(get(0)).text.contains('SRR000001')
+            }
+
+            with(process.out.unresolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.unresolved.tsv'
+                )
+                assert path(get(0)).readLines().first() ==
+                    'accession\trepository\taccession_type\tsource_file\treason'
+            }
+
+            with(process.out.samplesheet) {
+                assert size() == 1
+                assert get(0).toString().endsWith('samplesheet.csv')
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR000001,SRR000001'
+                ]
+            }
+
+            with(process.out.versions) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    '"ACCESSION_RESOLVER":',
+                    '    ffq: "0.3.1"',
+                    '    accession_resolver: "0.1.0"'
+                ]
+            }
+        }
+    }
+}

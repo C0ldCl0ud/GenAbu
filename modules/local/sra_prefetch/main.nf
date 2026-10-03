@@ -2,7 +2,7 @@ process SRA_PREFETCH {
 
     tag "${meta.id} (${accession})"
 
-    container 'quay.io/biocontainers/sra-tools:3.4.1--h4304569_0'
+    container 'quay.io/biocontainers/sra-tools:3.2.1--h4304569_1'
 
     input:
     tuple val(meta), val(accession)
@@ -14,8 +14,6 @@ process SRA_PREFETCH {
     """
     prefetch "${accession}" \
         --output-directory "${accession}"
-
-    vdb-validate "${accession}"
     """
 
     stub:

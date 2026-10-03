@@ -26,24 +26,43 @@ process FALCO {
         error "FALCO input contract mismatch for ${meta.id}: single_end=${meta.single_end}, but ${read_list.size()} FASTQ file(s) were provided"
     }
 
-    def commands = read_list.withIndex().collect { read, index ->
+    def read_args = read_list
+        .collect { read -> "\"${read}\"" }
+        .join(" ")
+
+    def move_commands = read_list.withIndex().collect { read, index ->
 
         def suffix = read_list.size() == 1
             ? ""
             : "_R${index + 1}"
 
+        // Falco 2.x removes .fastq/.fq and optional .gz
+        // when naming its per-input output directory.
+        def falco_dir = read.name.replaceFirst(/(\.fastq|\.fq)(\.gz)?$/, '')
+
         """
-        falco \
-            -o . \
-            -D "${meta.id}${suffix}_fastqc_data.txt" \
-            -R "${meta.id}${suffix}_fastqc_report.html" \
-            -S "${meta.id}${suffix}_summary.txt" \
-            "${read}"
+        mv "falco_out/${falco_dir}/fastqc_data.txt" \
+            "${meta.id}${suffix}_fastqc_data.txt"
+
+        mv "falco_out/${falco_dir}/fastqc_report.html" \
+            "${meta.id}${suffix}_fastqc_report.html"
+
+        mv "falco_out/${falco_dir}/summary.txt" \
+            "${meta.id}${suffix}_summary.txt"
         """
     }.join("\n")
 
     """
-    ${commands}
+    rm -rf falco_out
+
+    falco \
+        -o falco_out \
+        -t ${task.cpus} \
+        ${read_args}
+
+    ${move_commands}
+
+    rm -rf falco_out
     """
 
     stub:

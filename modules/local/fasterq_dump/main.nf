@@ -3,7 +3,7 @@ process FASTERQ_DUMP {
     tag "${meta.id} (${accession})"
     label 'process_medium'
 
-    container 'quay.io/biocontainers/sra-tools:3.4.1--h4304569_0'
+    container 'quay.io/biocontainers/sra-tools:3.2.1--h4304569_1'
 
     input:
     tuple val(meta), val(accession), path(sra_dir)

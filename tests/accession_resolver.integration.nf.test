@@ -1,0 +1,73 @@
+/*
+ * Live metadata integration test for ACCESSION_RESOLVER.
+ *
+ *
+ * Run with:
+ *   nf-test test tests/accession_resolver_integration.nf.test \
+ *       --profile docker
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-accession-resolver-integration"
+)
+
+fixtureDir.mkdirs()
+
+def accessions = new File(fixtureDir, "paper.accessions.tsv")
+accessions.text = """\
+accession\trepository\taccession_type\tsource_file
+SRR10668798\tSRA\trun\tpaper.txt
+""".stripIndent()
+
+
+nextflow_process {
+
+    name "Test ACCESSION_RESOLVER integration"
+    tag "integration"
+
+    script "../modules/local/accession_resolver/main.nf"
+    process "ACCESSION_RESOLVER"
+
+
+    test("Should resolve a real run to its biological sample") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${accessions.canonicalPath}', checkIfExists: true)
+                )
+                input[1] = 20
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+            def rows = path(
+                process.out.resolved.get(0)
+            ).readLines().drop(1)
+
+            assert rows.size() == 1
+
+            def fields = rows.first().split('\t', -1)
+            assert fields[5]
+            assert fields[8] == 'SRR10668798'
+
+            assert path(
+                process.out.unresolved.get(0)
+            ).readLines().size() == 1
+
+            assert path(
+                process.out.samplesheet.get(0)
+            ).readLines() == [
+                'sample,accession',
+                'SRR10668798,SRR10668798'
+            ]
+        }
+    }
+}

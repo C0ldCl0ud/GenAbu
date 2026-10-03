@@ -16,7 +16,8 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 
 ## Tools
 - nf-schema
-- SRA Toolkit 3.4.1
+- ffq 0.3.1
+- SRA Toolkit 3.2.1
 - Falco 2.0.2
 
 ## Input
@@ -26,9 +27,11 @@ This project aims at developing a baseline bioinformatics pipeline. The Pipeline
 //insert a table here
 
 ## Parameters
-- ...
+- `--resolve_only`: for PDF input, resolve accessions and stop before downloading sequencing data. Default: `false`.
 
 ## Output
+- `results/samplesheet.csv`: reusable run-level SRA samplesheet generated from a paper.
+- `results/paper_resolve/`: extracted paper text, accession tables, and resolver versions.
 - gene_abundance.tsv
 //insert a table here
 

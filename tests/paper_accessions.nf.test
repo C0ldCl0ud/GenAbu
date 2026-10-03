@@ -1,0 +1,93 @@
+/*
+ * Fast wiring test for PAPER_ACCESSIONS.
+ *
+ * Stub mode verifies the process chain without pulling containers.
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-paper-accessions"
+)
+
+fixtureDir.mkdirs()
+
+def paper = new File(fixtureDir, "paper.pdf")
+paper.setText("%" + "PDF-stub fixture\n", "UTF-8")
+
+
+nextflow_workflow {
+
+    name "Test PAPER_ACCESSIONS"
+    tag "ci"
+
+    script "../subworkflows/local/paper_accessions/main.nf"
+    workflow "PAPER_ACCESSIONS"
+
+    options "-stub-run"
+
+
+    test("Should connect PDF extraction to accession extraction") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    file('${paper.canonicalPath}', checkIfExists: true)
+                )
+                input[1] = 20
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+            assert workflow.trace.tasks().size() == 3
+
+            with(workflow.out.text) {
+                assert size() == 1
+                assert get(0).toString().endsWith('paper.txt')
+                assert path(get(0)).readLines().contains(
+                    'GenAbu PDF text extraction stub'
+                )
+            }
+
+            with(workflow.out.accessions) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.tsv'
+                )
+                assert path(get(0)).readLines() == [
+                    'accession\trepository\taccession_type\tsource_file'
+                ]
+            }
+
+            with(workflow.out.resolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.resolved.tsv'
+                )
+                assert path(get(0)).readLines().size() == 2
+            }
+
+            with(workflow.out.unresolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.unresolved.tsv'
+                )
+                assert path(get(0)).readLines().size() == 1
+            }
+
+            with(workflow.out.samplesheet) {
+                assert size() == 1
+                assert path(get(0)).readLines() == [
+                    'sample,accession',
+                    'SRR000001,SRR000001'
+                ]
+            }
+
+            assert workflow.out.sra.size() == 1
+        }
+    }
+}
