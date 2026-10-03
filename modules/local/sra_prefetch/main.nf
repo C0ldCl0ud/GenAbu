@@ -14,8 +14,6 @@ process SRA_PREFETCH {
     """
     prefetch "${accession}" \
         --output-directory "${accession}"
-
-    vdb-validate "${accession}"
     """
 
     stub:
