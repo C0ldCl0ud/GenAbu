@@ -16,3 +16,7 @@ Information/.obsidian
 
 #patches
 *.patch
+
+# Python
+__pycache__/
+*.py[cod]
