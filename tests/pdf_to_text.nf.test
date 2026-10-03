@@ -1,0 +1,116 @@
+/*
+ * Process-level contract test for PDF_TO_TEXT.
+ */
+
+def rootDir = new File(".").canonicalFile
+def fixtureDir = new File(rootDir, ".nf-test/generated-pdf-to-text")
+
+fixtureDir.mkdirs()
+
+
+def makeMinimalPdf = { String filename ->
+
+    def file = new File(fixtureDir, filename)
+    def header = "%PDF-1.4\n"
+    def streamContent =
+        "BT /F1 12 Tf 20 100 Td (GenAbu test paper GSE123456) Tj ET\n"
+
+    def objects = [
+        """1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+""",
+        """2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+""",
+        """3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+""",
+        """4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+""",
+        """5 0 obj
+<< /Length ${streamContent.getBytes("UTF-8").length} >>
+stream
+${streamContent}endstream
+endobj
+"""
+    ]
+
+    def pdf = new StringBuilder(header)
+    def offsets = []
+
+    objects.each { object ->
+        offsets << pdf.toString().getBytes("UTF-8").length
+        pdf.append(object)
+    }
+
+    def xrefOffset = pdf.toString().getBytes("UTF-8").length
+
+    pdf.append("xref\n")
+    pdf.append("0 ${objects.size() + 1}\n")
+    pdf.append("0000000000 65535 f \n")
+
+    offsets.each { offset ->
+        pdf.append(String.format("%010d 00000 n \n", offset))
+    }
+
+    pdf.append("""trailer
+<< /Size ${objects.size() + 1} /Root 1 0 R >>
+startxref
+${xrefOffset}
+%%EOF
+""")
+
+    file.setText(pdf.toString(), "UTF-8")
+    file
+}
+
+
+def paper = makeMinimalPdf("paper.pdf")
+
+
+nextflow_process {
+
+    name "Test PDF_TO_TEXT v2"
+    tag "ci"
+
+    script "../modules/local/pdf_to_text/main.nf"
+    process "PDF_TO_TEXT"
+
+    options "-stub-run"
+
+
+    test("Should create a text file for a PDF input") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    file('${paper.canonicalPath}', checkIfExists: true)
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.text) {
+                assert size() == 1
+
+                def outputPath = get(0).toString()
+
+                assert outputPath.endsWith('paper.txt')
+                assert new File(outputPath).text.contains(
+                    'GenAbu PDF text extraction stub'
+                )
+            }
+        }
+    }
+}
