@@ -1,0 +1,835 @@
+/*
+ * Subworkflow-level tests for REFERENCE_PREPARATION.
+ *
+ * Cache hierarchy:
+ *
+ *   reference cache
+ *        |
+ *        +-- genome.fa.gz
+ *        +-- genes.gtf.gz
+ *        +-- reference.yml
+ *        +-- transcripts.fa.gz
+ *        |
+ *        `-- salmon-2.7.0-k31/
+ *              `-- salmon_index/
+ *
+ *
+ * Expected work:
+ *
+ *   empty cache
+ *       -> REFERENCE_DOWNLOAD
+ *       -> TRANSCRIPTOME_GENERATE
+ *       -> SALMON_INDEX
+ *
+ *   genome/GTF cached
+ *       -> TRANSCRIPTOME_GENERATE
+ *       -> SALMON_INDEX
+ *
+ *   transcriptome cached
+ *       -> SALMON_INDEX
+ *
+ *   everything cached
+ *       -> no process execution
+ *
+ * Normal CI uses stub mode only.
+ */
+
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-reference-preparation"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+def createBaseReference = {
+    File cacheRoot,
+    String id,
+    String species,
+    String assembly,
+    String assemblyVersion,
+    String assemblyAccession ->
+
+    def referenceDir = new File(
+        cacheRoot,
+        "ensembl/release-116/${id}-${assembly}"
+    )
+
+    referenceDir.mkdirs()
+
+
+    /*
+     * Genome deliberately exceeds Salmon k = 31.
+     */
+    writeGzip(
+        new File(
+            referenceDir,
+            "genome.fa.gz"
+        ),
+        """\
+>chr1
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
+""".stripIndent()
+    )
+
+
+    writeGzip(
+        new File(
+            referenceDir,
+            "genes.gtf.gz"
+        ),
+        """\
+chr1\tGenAbu\ttranscript\t1\t48\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t48\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+""".stripIndent()
+    )
+
+
+    new File(
+        referenceDir,
+        "reference.yml"
+    ).text = """\
+id: ${id}
+species: "${species}"
+assembly: ${assembly}
+assembly_version: ${assemblyVersion}
+assembly_accession: ${assemblyAccession}
+source: Ensembl
+release: 116
+""".stripIndent()
+
+
+    referenceDir
+}
+
+
+def createTranscriptCache = { File referenceDir ->
+
+    def transcriptFile = new File(
+        referenceDir,
+        "transcripts.fa.gz"
+    )
+
+    writeGzip(
+        transcriptFile,
+        """\
+>tx1
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
+""".stripIndent()
+    )
+
+    transcriptFile
+}
+
+
+def createSalmonCache = { File referenceDir ->
+
+    def salmonCacheDir = new File(
+        referenceDir,
+        "salmon-2.7.0-k31"
+    )
+
+    def indexDir = new File(
+        salmonCacheDir,
+        "salmon_index"
+    )
+
+    indexDir.mkdirs()
+
+
+    /*
+     * REFERENCE_PREPARATION considers the index valid when these
+     * core files exist and are non-empty.
+     */
+    new File(
+        indexDir,
+        "info.json"
+    ).text = """\
+{
+  "version": "2.7.0",
+  "index_type": "stub-cache"
+}
+""".stripIndent()
+
+
+    new File(
+        indexDir,
+        "refseq.bin"
+    ).text = "cached-refseq\n"
+
+
+    new File(
+        indexDir,
+        "refseq_offsets.json"
+    ).text = """\
+{
+  "offsets": [0]
+}
+""".stripIndent()
+
+
+    /*
+     * Additional files make the fixture resemble a normal Salmon index.
+     */
+    [
+        "duplicate_clusters.tsv",
+        "index.ctab",
+        "index.ectab",
+        "index.refinfo",
+        "index.ssi",
+        "index.ssi.mphf",
+        "index.tct",
+        "index.tdct"
+    ].each { filename ->
+
+        new File(
+            indexDir,
+            filename
+        ).text = "cached\n"
+    }
+
+
+    indexDir
+}
+
+
+// =============================================================================
+// Cache fixtures
+// =============================================================================
+
+/*
+ * 1. Completely empty cache.
+ *
+ * Expected:
+ *   REFERENCE_DOWNLOAD
+ *   TRANSCRIPTOME_GENERATE
+ *   SALMON_INDEX
+ */
+def emptyCache = new File(
+    fixtureDir,
+    "empty-cache"
+)
+
+emptyCache.mkdirs()
+
+
+/*
+ * 2. Genome + GTF cached.
+ *
+ * Expected:
+ *   TRANSCRIPTOME_GENERATE
+ *   SALMON_INDEX
+ */
+def baseCache = new File(
+    fixtureDir,
+    "base-cache"
+)
+
+baseCache.mkdirs()
+
+def baseReferenceDir = createBaseReference(
+    baseCache,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+
+/*
+ * 3. Genome + GTF + transcriptome cached.
+ *
+ * Expected:
+ *   SALMON_INDEX
+ */
+def transcriptCache = new File(
+    fixtureDir,
+    "transcript-cache"
+)
+
+transcriptCache.mkdirs()
+
+def transcriptReferenceDir = createBaseReference(
+    transcriptCache,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+createTranscriptCache(
+    transcriptReferenceDir
+)
+
+
+/*
+ * 4. Complete cache.
+ *
+ * Expected:
+ *   no processes
+ */
+def completeCache = new File(
+    fixtureDir,
+    "complete-cache"
+)
+
+completeCache.mkdirs()
+
+def completeReferenceDir = createBaseReference(
+    completeCache,
+    "mouse",
+    "Mus musculus",
+    "GRCm39",
+    "GRCm39",
+    "GCA_000001635.9"
+)
+
+createTranscriptCache(
+    completeReferenceDir
+)
+
+createSalmonCache(
+    completeReferenceDir
+)
+
+
+// =============================================================================
+// Tests
+// =============================================================================
+
+nextflow_workflow {
+
+    name "Test REFERENCE_PREPARATION"
+    tag "ci"
+
+    script "../subworkflows/local/reference_preparation/main.nf"
+    workflow "REFERENCE_PREPARATION"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Empty cache
+    // =========================================================================
+
+    test("Should build all reference artifacts from an empty cache") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${emptyCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * REFERENCE_DOWNLOAD
+             * + TRANSCRIPTOME_GENERATE
+             * + SALMON_INDEX
+             */
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+
+
+            with(workflow.out.reference) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.assembly_version == 'GRCm39'
+                assert reference.assembly_accession ==
+                    'GCA_000001635.9'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+
+                assert path(
+                    result[1]
+                ).toFile().name == 'genome.fa.gz'
+
+                assert path(
+                    result[2]
+                ).toFile().name == 'genes.gtf.gz'
+
+                assert path(
+                    result[3]
+                ).toFile().name == 'reference.yml'
+            }
+
+
+            with(workflow.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def transcript = path(
+                    result[1]
+                ).toFile()
+
+                assert transcript.name ==
+                    'transcripts.fa.gz'
+
+                assert transcript.exists()
+                assert transcript.length() > 0
+            }
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+
+                assert new File(
+                    indexDir,
+                    'info.json'
+                ).exists()
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Base reference cached
+    // =========================================================================
+
+    test("Should reuse cached genome and annotation") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${baseCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * REFERENCE_DOWNLOAD is skipped.
+             *
+             * TRANSCRIPTOME_GENERATE
+             * + SALMON_INDEX
+             */
+            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.succeeded().size() == 2
+
+
+            with(workflow.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name ==
+                    'transcripts.fa.gz'
+            }
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                assert path(
+                    result[1]
+                ).toFile().name ==
+                    'salmon_index'
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Transcriptome cached
+    // =========================================================================
+
+    test("Should reuse cached transcriptome and only build the Salmon index") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${transcriptCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * REFERENCE_DOWNLOAD is skipped.
+             * TRANSCRIPTOME_GENERATE is skipped.
+             *
+             * Only SALMON_INDEX runs.
+             */
+            assert workflow.trace.tasks().size() == 1
+            assert workflow.trace.succeeded().size() == 1
+
+
+            with(workflow.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+
+                def transcript = path(
+                    result[1]
+                ).toFile()
+
+                assert transcript.name ==
+                    'transcripts.fa.gz'
+
+                assert transcript.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Complete cache
+    // =========================================================================
+
+    test("Should reuse a complete reference cache without running any process") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'mouse'
+                )
+
+                input[1] = Channel.value(
+                    '${completeCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * Everything is already present:
+             *
+             * REFERENCE_DOWNLOAD      skipped
+             * TRANSCRIPTOME_GENERATE skipped
+             * SALMON_INDEX           skipped
+             */
+            assert workflow.trace.tasks().size() == 0
+            assert workflow.trace.succeeded().size() == 0
+
+
+            with(workflow.out.reference) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+            }
+
+
+            with(workflow.out.genome_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def genome = path(
+                    result[1]
+                ).toFile()
+
+                assert genome.name ==
+                    'genome.fa.gz'
+
+                assert genome.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+
+
+            with(workflow.out.gtf) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def gtf = path(
+                    result[1]
+                ).toFile()
+
+                assert gtf.name ==
+                    'genes.gtf.gz'
+
+                assert gtf.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+
+
+            with(workflow.out.transcript_fasta) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def transcript = path(
+                    result[1]
+                ).toFile()
+
+                assert transcript.name ==
+                    'transcripts.fa.gz'
+
+                assert transcript.exists()
+                assert transcript.length() > 0
+
+                assert transcript.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+
+                assert indexDir.canonicalPath.contains(
+                    'salmon-2.7.0-k31'
+                )
+
+
+                assert new File(
+                    indexDir,
+                    'info.json'
+                ).length() > 0
+
+
+                assert new File(
+                    indexDir,
+                    'refseq.bin'
+                ).length() > 0
+
+
+                assert new File(
+                    indexDir,
+                    'refseq_offsets.json'
+                ).length() > 0
+            }
+
+
+            with(workflow.out.manifest) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id == 'mouse'
+
+                def manifest = path(
+                    result[1]
+                ).toFile()
+
+                assert manifest.name ==
+                    'reference.yml'
+
+                assert manifest.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Alias resolution + cache reuse
+    // =========================================================================
+
+    test("Should reuse the same complete cache through a species alias") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    'Mus musculus'
+                )
+
+                input[1] = Channel.value(
+                    '${completeCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * Alias resolves to the already complete mouse cache.
+             */
+            assert workflow.trace.tasks().size() == 0
+
+
+            with(workflow.out.salmon_index) {
+
+                assert size() == 1
+
+                def result = get(0)
+                def reference = result[0]
+
+                assert reference.id == 'mouse'
+                assert reference.species ==
+                    'Mus musculus'
+                assert reference.assembly ==
+                    'GRCm39'
+                assert reference.release == 116
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.canonicalPath.contains(
+                    'mouse-GRCm39'
+                )
+
+                assert indexDir.canonicalPath.contains(
+                    'salmon-2.7.0-k31'
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,243 @@
+/*
+ * Process-level tests for REFERENCE_DOWNLOAD.
+ *
+ * These tests run in stub mode:
+ *   - no network access is required
+ *   - no reference genomes are actually downloaded
+ *   - output contracts and metadata are tested
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-reference-download"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def mouseCache = new File(
+    fixtureDir,
+    "mouse-cache"
+)
+
+mouseCache.mkdirs()
+
+
+def humanCache = new File(
+    fixtureDir,
+    "human-cache"
+)
+
+humanCache.mkdirs()
+
+
+nextflow_process {
+
+    name "Test REFERENCE_DOWNLOAD"
+    tag "ci"
+
+    script "../modules/local/reference_download/main.nf"
+    process "REFERENCE_DOWNLOAD"
+
+    options "-stub-run"
+
+
+    // =========================================================================
+    // Mouse reference
+    // =========================================================================
+
+    test("Should create the expected reference files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            species: 'Mus musculus',
+                            assembly: 'GRCm39',
+                            assembly_version: 'GRCm39',
+                            assembly_accession: 'GCA_000001635.9',
+                            source: 'Ensembl',
+                            release: 116,
+                            aliases: [
+                                'mouse',
+                                'mus musculus',
+                                'mus_musculus',
+                                'grcm39'
+                            ],
+                            genome_url: 'https://example.org/mouse.fa.gz',
+                            gtf_url: 'https://example.org/mouse.gtf.gz'
+                        ],
+                        '${mouseCache.canonicalPath}'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.reference_files) {
+
+                assert size() == 1
+
+                def result    = get(0)
+                def reference = result[0]
+
+                def genome = path(result[1]).toFile()
+                def gtf    = path(result[2]).toFile()
+                def manifest = path(result[3]).toFile()
+
+                assert reference.id == 'mouse'
+                assert reference.species == 'Mus musculus'
+                assert reference.assembly == 'GRCm39'
+                assert reference.release == 116
+
+                assert genome.name == 'genome.fa.gz'
+                assert gtf.name == 'genes.gtf.gz'
+                assert manifest.name == 'reference.yml'
+
+                assert genome.exists()
+                assert gtf.exists()
+                assert manifest.exists()
+
+                /*
+                 * Stub files are deliberately non-empty so they behave
+                 * like valid cache entries in resolver tests.
+                 */
+                assert genome.length() > 0
+                assert gtf.length() > 0
+                assert manifest.length() > 0
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Reference manifest
+    // =========================================================================
+
+    test("Should preserve reference metadata in reference.yml") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'human',
+                            species: 'Homo sapiens',
+                            assembly: 'GRCh38',
+                            assembly_version: 'GRCh38.p14',
+                            assembly_accession: 'GCA_000001405.29',
+                            source: 'Ensembl',
+                            release: 116,
+                            aliases: [
+                                'human',
+                                'homo sapiens',
+                                'homo_sapiens',
+                                'grch38',
+                                'grch38.p14'
+                            ],
+                            genome_url: 'https://example.org/human.fa.gz',
+                            gtf_url: 'https://example.org/human.gtf.gz'
+                        ],
+                        '${humanCache.canonicalPath}'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.reference_files) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+                def manifest  = path(result[3]).toFile()
+
+                assert reference.id == 'human'
+                assert reference.species == 'Homo sapiens'
+                assert reference.assembly == 'GRCh38'
+                assert reference.assembly_version == 'GRCh38.p14'
+                assert reference.assembly_accession == 'GCA_000001405.29'
+                assert reference.source == 'Ensembl'
+                assert reference.release == 116
+
+                def contents = manifest.text
+
+                assert contents.contains('id: human')
+                assert contents.contains('species: "Homo sapiens"')
+                assert contents.contains('assembly: GRCh38')
+                assert contents.contains('assembly_version: GRCh38.p14')
+                assert contents.contains(
+                    'assembly_accession: GCA_000001405.29'
+                )
+                assert contents.contains('source: Ensembl')
+                assert contents.contains('release: 116')
+            }
+        }
+    }
+
+
+    // =========================================================================
+    // Tool version
+    // =========================================================================
+
+    test("Should emit the wget version") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'mouse',
+                            species: 'Mus musculus',
+                            assembly: 'GRCm39',
+                            assembly_version: 'GRCm39',
+                            assembly_accession: 'GCA_000001635.9',
+                            source: 'Ensembl',
+                            release: 116,
+                            aliases: ['mouse'],
+                            genome_url: 'https://example.org/mouse.fa.gz',
+                            gtf_url: 'https://example.org/mouse.gtf.gz'
+                        ],
+                        '${mouseCache.canonicalPath}'
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(get(0)).toFile()
+
+                assert versions.exists()
+
+                assert versions.readLines().any {
+                    it.contains('wget: "1.21.4"')
+                }
+            }
+        }
+    }
+}
