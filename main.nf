@@ -12,7 +12,10 @@ workflow {
     INPUT_VALIDATOR(INPUT_ROUTER.out.samplesheet)
     PAPER_ACCESSIONS(INPUT_ROUTER.out.paper)
 
-    SRA_INPUT(INPUT_VALIDATOR.out.sra)
+    ch_sra = INPUT_VALIDATOR.out.sra
+        .mix(PAPER_ACCESSIONS.out.sra)
+
+    SRA_INPUT(ch_sra)
 
     ch_reads = INPUT_VALIDATOR.out.fastq
         .mix(SRA_INPUT.out.reads)

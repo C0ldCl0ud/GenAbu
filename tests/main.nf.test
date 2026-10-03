@@ -3,7 +3,8 @@
  *
  * These tests verify top-level wiring:
  *   - FASTQ input is routed directly into FALCO.
- *   - SRA input is prepared through SRA_INPUT and then routed into FALCO.
+ *   - SRA input is prepared through SRA_INPUT and routed into FALCO.
+ *   - PDF input is routed through PAPER_ACCESSIONS.
  */
 
 def rootDir = new File(".").canonicalFile
@@ -46,6 +47,14 @@ validSra.text = """\
 sample,accession
 sample1,SRR6357070
 """.stripIndent()
+
+
+def validPaper = new File(
+    fixtureDir,
+    "paper.pdf"
+)
+
+validPaper.setText("%" + "PDF-stub fixture\n", "UTF-8")
 
 
 nextflow_pipeline {
@@ -93,6 +102,26 @@ nextflow_pipeline {
             // One SRA_PREFETCH task
             // + one FASTERQ_DUMP task
             // + one FALCO task.
+            assert workflow.trace.tasks().size() == 3
+            assert workflow.trace.succeeded().size() == 3
+        }
+    }
+
+
+    test("Should route PDF input through PAPER_ACCESSIONS") {
+
+        when {
+            params {
+                input = validPaper.canonicalPath
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+            // One PDF_TO_TEXT task + one ACCESSION_EXTRACTOR task
+            // + one ACCESSION_RESOLVER task.
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
         }

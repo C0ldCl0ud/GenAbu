@@ -42,7 +42,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert workflow.exitStatus == 0
-            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.tasks().size() == 3
 
             with(workflow.out.text) {
                 assert size() == 1
@@ -61,6 +61,24 @@ nextflow_workflow {
                     'accession\trepository\taccession_type\tsource_file'
                 ]
             }
+
+            with(workflow.out.resolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.resolved.tsv'
+                )
+                assert path(get(0)).readLines().size() == 1
+            }
+
+            with(workflow.out.unresolved) {
+                assert size() == 1
+                assert get(0).toString().endsWith(
+                    'paper.accessions.unresolved.tsv'
+                )
+                assert path(get(0)).readLines().size() == 1
+            }
+
+            assert workflow.out.sra.size() == 0
         }
     }
 }

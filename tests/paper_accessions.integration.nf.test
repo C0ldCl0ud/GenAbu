@@ -1,10 +1,8 @@
 /*
  * Real integration test for PAPER_ACCESSIONS.
  *
- * The python:3.12-slim container does not provide the procps package used
- * by nf-test tracing. Run this test without trace collection:
- *
- *   nf-test test tests/paper_accessions.integration.nf.test \
+ * Run with:
+ *   nf-test test tests/paper_accessions_integration.nf.test \
  *       --profile docker \
  *       --without-trace
  */
@@ -12,7 +10,7 @@
 def rootDir = new File(".").canonicalFile
 def fixtureDir = new File(
     rootDir,
-    ".nf-test/generated-paper-accessions-integration-v2"
+    ".nf-test/generated-paper-accessions-integration"
 )
 
 fixtureDir.mkdirs()
@@ -23,7 +21,7 @@ def makeMinimalPdf = { String filename ->
     def file = new File(fixtureDir, filename)
     def header = "%" + "PDF-1.4\n"
     def streamContent =
-        "BT /F1 12 Tf 20 100 Td (GenAbu paper GSE123456) Tj ET\n"
+        "BT /F1 12 Tf 20 100 Td (GenAbu paper SRR10668798) Tj ET\n"
 
     def objects = [
         """1 0 obj
@@ -85,14 +83,14 @@ def paper = makeMinimalPdf("paper.pdf")
 
 nextflow_workflow {
 
-    name "Test PAPER_ACCESSIONS integration v2"
+    name "Test PAPER_ACCESSIONS integration"
     tag "integration"
 
     script "../subworkflows/local/paper_accessions/main.nf"
     workflow "PAPER_ACCESSIONS"
 
 
-    test("Should extract a GEO accession from a real PDF") {
+    test("Should extract and resolve an SRA run from a real PDF") {
 
         when {
             workflow {
@@ -111,7 +109,7 @@ nextflow_workflow {
             with(workflow.out.text) {
                 assert size() == 1
                 assert path(get(0)).readLines().join('\n').contains(
-                    'GenAbu paper GSE123456'
+                    'GenAbu paper SRR10668798'
                 )
             }
 
@@ -122,9 +120,17 @@ nextflow_workflow {
 
                 assert lines == [
                     'accession\trepository\taccession_type\tsource_file',
-                    'GSE123456\tGEO\tseries\tpaper.txt'
+                    'SRR10668798\tSRA\trun\tpaper.txt'
                 ]
             }
+
+            with(workflow.out.resolved) {
+                assert size() == 1
+                assert path(get(0)).readLines().drop(1).size() == 1
+                assert path(get(0)).text.contains('SRR10668798')
+            }
+
+            assert workflow.out.sra.size() == 1
         }
     }
 }
