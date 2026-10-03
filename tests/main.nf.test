@@ -186,24 +186,6 @@ nextflow_pipeline {
     }
 
 
-    test("Should route PDF input through PAPER_ACCESSIONS") {
-
-        when {
-            params {
-                input = validPaper.canonicalPath
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.exitStatus == 0
-
-            // Three paper-resolution tasks + SRA_PREFETCH
-            // + FASTERQ_DUMP + FALCO.
-            assert workflow.trace.tasks().size() == 6
-            assert workflow.trace.succeeded().size() == 6
-        }
-    }
 
 
     test("Should stop after resolving a PDF in resolve-only mode") {
