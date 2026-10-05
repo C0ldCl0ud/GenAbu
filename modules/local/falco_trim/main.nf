@@ -38,7 +38,7 @@ process FALCO_TRIM {
 
         // Falco 2.x removes .fastq/.fq and optional .gz
         // when naming its per-input output directory.
-        def falco_trim_dir = read.name.replaceFirst(/(\.fastq|\.fq)(\.gz)?$/, '') + "_trimmed"
+        def falco_trim_dir = read.name.replaceFirst(/(\.fastq|\.fq)(\.gz)?$/, '')
 
         """
         mv "falco_out/${falco_trim_dir}/_fastqc_data.txt" \

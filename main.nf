@@ -6,6 +6,7 @@ include { REFERENCE_PREPARATION } from './subworkflows/local/reference_preparati
 include { QUANTIFICATION }        from './subworkflows/local/quantification/main'
 
 include { FALCO }                 from './modules/local/falco/main'
+include { FALCO_TRIM }            from './modules/local/falco_trim/main'
 include { CUTADAPT }              from './modules/local/cutadapt/main'
 include { SALMON_QUANT }          from './modules/local/salmon_quant/main'
 include { MULTIQC }               from './modules/local/multiqc/main'
@@ -107,7 +108,7 @@ workflow {
          * Trimmed-read quality control
          */
         FALCO_TRIM(
-            CUTADAPT.reads
+            CUTADAPT.out.reads
         )
 
         /*
@@ -143,7 +144,7 @@ workflow {
                 report
             }
 
-        ch_falco_trim_multiqc = FALCO_TRIM-out.data
+        ch_falco_trim_multiqc = FALCO_TRIM.out.data
             .map {
                 meta,
                 files ->
