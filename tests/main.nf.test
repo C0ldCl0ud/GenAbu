@@ -3,13 +3,12 @@
  *
  * These tests verify top-level orchestration:
  *
- *   - FASTQ input is routed into FALCO, CUTADAPT, and MULTIQC.
- *   - SRA input is prepared through SRA_INPUT, then routed into
- *     FALCO, CUTADAPT, and MULTIQC.
- *   - PDF input is routed through PAPER_ACCESSIONS, SRA_INPUT,
- *     FALCO, CUTADAPT, and MULTIQC.
+ *   - FASTQ input is routed through FALCO, CUTADAPT, and MULTIQC.
+ *   - SRA input is prepared through SRA_INPUT before read processing.
+ *   - PDF input is resolved before SRA and read processing.
  *   - resolve_only stops after paper accession resolution.
  *   - supplying --genome invokes REFERENCE_PREPARATION.
+ *   - trimmed reads are quantified with Salmon when a genome is supplied.
  *
  * Detailed behavior of individual modules and subworkflows is tested
  * separately. This file only verifies top-level orchestration.
@@ -38,6 +37,10 @@ def fixtureDir = new File(
 fixtureDir.deleteDir()
 fixtureDir.mkdirs()
 
+
+// =============================================================================
+// Input fixtures
+// =============================================================================
 
 def validFastq = new File(
     fixtureDir,
@@ -73,9 +76,9 @@ validPaper.setText(
 
 
 /*
- * Empty reference cache used by the genome orchestration test.
+ * Empty persistent reference cache.
  *
- * Because it is empty, REFERENCE_PREPARATION must perform:
+ * Supplying --genome mouse therefore requires:
  *
  *   REFERENCE_DOWNLOAD
  *   TRANSCRIPTOME_GENERATE
@@ -89,6 +92,10 @@ def referenceCache = new File(
 referenceCache.mkdirs()
 
 
+// =============================================================================
+// Pipeline tests
+// =============================================================================
+
 nextflow_pipeline {
 
     name "Pipeline smoke tests"
@@ -97,16 +104,17 @@ nextflow_pipeline {
     script "../main.nf"
 
     /*
-     * Never execute external bioinformatics tools in normal CI.
+     * Normal continuous integration never executes the real
+     * bioinformatics tools.
      */
     options "-stub-run"
 
 
     // =========================================================================
-    // FASTQ
+    // FASTQ without reference
     // =========================================================================
 
-    test("Should route FASTQ input through FALCO, CUTADAPT, and MULTIQC") {
+    test("Should route FASTQ input through read processing") {
 
         when {
             params {
@@ -119,11 +127,14 @@ nextflow_pipeline {
             assert workflow.exitStatus == 0
 
             /*
-             * FASTQ input bypasses SRA_INPUT.
+             * No genome was supplied.
              *
              * FALCO
-             * + CUTADAPT
-             * + MULTIQC
+             * CUTADAPT
+             * MULTIQC
+             *
+             * Reference preparation and Salmon quantification
+             * are not invoked.
              */
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
@@ -132,10 +143,10 @@ nextflow_pipeline {
 
 
     // =========================================================================
-    // SRA
+    // SRA without reference
     // =========================================================================
 
-    test("Should route SRA input through SRA_INPUT, FALCO, CUTADAPT, and MULTIQC") {
+    test("Should route SRA input through download and read processing") {
 
         when {
             params {
@@ -149,10 +160,10 @@ nextflow_pipeline {
 
             /*
              * SRA_PREFETCH
-             * + FASTERQ_DUMP
-             * + FALCO
-             * + CUTADAPT
-             * + MULTIQC
+             * FASTERQ_DUMP
+             * FALCO
+             * CUTADAPT
+             * MULTIQC
              */
             assert workflow.trace.tasks().size() == 5
             assert workflow.trace.succeeded().size() == 5
@@ -161,10 +172,10 @@ nextflow_pipeline {
 
 
     // =========================================================================
-    // PDF
+    // PDF without reference
     // =========================================================================
 
-    test("Should route PDF input through PAPER_ACCESSIONS and processing") {
+    test("Should route PDF input through accession and read processing") {
 
         when {
             params {
@@ -178,13 +189,13 @@ nextflow_pipeline {
 
             /*
              * PDF_TO_TEXT
-             * + ACCESSION_EXTRACTOR
-             * + ACCESSION_RESOLVER
-             * + SRA_PREFETCH
-             * + FASTERQ_DUMP
-             * + FALCO
-             * + CUTADAPT
-             * + MULTIQC
+             * ACCESSION_EXTRACTOR
+             * ACCESSION_RESOLVER
+             * SRA_PREFETCH
+             * FASTERQ_DUMP
+             * FALCO
+             * CUTADAPT
+             * MULTIQC
              */
             assert workflow.trace.tasks().size() == 8
             assert workflow.trace.succeeded().size() == 8
@@ -211,11 +222,10 @@ nextflow_pipeline {
 
             /*
              * PDF_TO_TEXT
-             * + ACCESSION_EXTRACTOR
-             * + ACCESSION_RESOLVER
+             * ACCESSION_EXTRACTOR
+             * ACCESSION_RESOLVER
              *
-             * Reference preparation, SRA_INPUT, FALCO,
-             * CUTADAPT, and MULTIQC must not run.
+             * Nothing downstream should run.
              */
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
@@ -223,7 +233,7 @@ nextflow_pipeline {
     }
 
 
-    test("Should accept a custom max_runs value for PDF input") {
+    test("Should accept a custom max_runs value in resolve-only mode") {
 
         when {
             params {
@@ -239,8 +249,8 @@ nextflow_pipeline {
 
             /*
              * PDF_TO_TEXT
-             * + ACCESSION_EXTRACTOR
-             * + ACCESSION_RESOLVER
+             * ACCESSION_EXTRACTOR
+             * ACCESSION_RESOLVER
              */
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
@@ -249,16 +259,17 @@ nextflow_pipeline {
 
 
     // =========================================================================
-    // Reference preparation
+    // FASTQ + complete reference preparation + quantification
     // =========================================================================
 
-    test("Should prepare a reference when genome is supplied") {
+    test("Should quantify trimmed FASTQ reads when genome is supplied") {
 
         when {
             params {
                 input = validFastq.canonicalPath
                 genome = 'mouse'
-                reference_cache = referenceCache.canonicalPath
+                reference_cache =
+                    referenceCache.canonicalPath
             }
         }
 
@@ -267,22 +278,26 @@ nextflow_pipeline {
             assert workflow.exitStatus == 0
 
             /*
-             * Normal FASTQ processing:
+             * Read processing:
              *
-             * FALCO
-             * + CUTADAPT
-             * + MULTIQC
+             *   FALCO
+             *   CUTADAPT
+             *   MULTIQC
              *
-             * Reference preparation:
+             * Reference preparation from empty cache:
              *
-             * REFERENCE_DOWNLOAD
-             * + TRANSCRIPTOME_GENERATE
-             * + SALMON_INDEX
+             *   REFERENCE_DOWNLOAD
+             *   TRANSCRIPTOME_GENERATE
+             *   SALMON_INDEX
              *
-             * Total = 6
+             * Quantification:
+             *
+             *   SALMON_QUANT
+             *
+             * Total = 7
              */
-            assert workflow.trace.tasks().size() == 6
-            assert workflow.trace.succeeded().size() == 6
+            assert workflow.trace.tasks().size() == 7
+            assert workflow.trace.succeeded().size() == 7
         }
     }
 }
