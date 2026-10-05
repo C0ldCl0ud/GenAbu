@@ -129,6 +129,14 @@ workflow {
                 }
                 .collect()
 
+            ch_salmon_multiqc = QUANTIFICATION.out.results
+            .map {
+                meta,
+                salmon_dir ->
+
+                salmon_dir
+            }
+
 
             GENE_ABUNDANCE(
                 ch_gene_quant_files
@@ -170,13 +178,24 @@ workflow {
         ch_multiqc_files = ch_falco_multiqc
             .concat(
                 ch_cutadapt_multiqc,
-                ch_falco_trim_multiqc
+                ch_falco_trim_multiqc,
             )
             .collect()
 
+        if (params.genome) {
+            ch_multiqc_files = ch_multiqc_files
+                .concat(
+                    ch_salmon_multiqc
+                )
+        }
+
+        ch_multiqc_config = Channel.value(
+            file("${projectDir}/assets/multiqc_config.yml")
+        )
 
         MULTIQC(
-            ch_multiqc_files
+            ch_multiqc_files,
+            ch_multiqc_config
         )
     }
 }

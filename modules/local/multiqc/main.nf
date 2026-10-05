@@ -5,10 +5,13 @@ process MULTIQC {
 
     container 'community.wave.seqera.io/library/multiqc:1.35--c17fb751507e9dfc'
 
-    publishDir 'results/multiqc', mode: 'copy', overwrite: true
+    publishDir 'results/multiqc',
+        mode: 'copy',
+        overwrite: true
 
     input:
     path multiqc_files, stageAs: "?/*"
+    path multiqc_config
 
     output:
     path "multiqc_report.html", emit: report
@@ -20,9 +23,10 @@ process MULTIQC {
     """
     multiqc \
         --force \
+        --config "${multiqc_config}" \
         .
 
-    printf '"%s":\n    multiqc: "%s"\n' \
+    printf '"%s":\\n    multiqc: "%s"\\n' \
         "${task.process}" \
         "\$(multiqc --version | awk '{print \$NF}')" \
         > versions.yml
@@ -35,7 +39,7 @@ process MULTIQC {
     mkdir -p multiqc_data
     touch multiqc_data/.stub
 
-    printf '"%s":\n    multiqc: "1.35"\n' \
+    printf '"%s":\\n    multiqc: "1.35"\\n' \
         "${task.process}" \
         > versions.yml
     """
