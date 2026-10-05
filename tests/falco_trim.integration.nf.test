@@ -1,0 +1,264 @@
+/*
+ * Real Docker integration test for FALCO_TRIM.
+ *
+ * Run with:
+ *
+ *   nf-test test \
+ *       tests/falco_trim.integration.nf.test \
+ *       --profile docker
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-falco-trim-integration"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output =
+        new java.util.zip.GZIPOutputStream(
+            new java.io.FileOutputStream(target)
+        )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+def sequence =
+    "ACGT" * 15
+
+def quality =
+    "I" * sequence.length()
+
+
+def pairedRead1 = new File(
+    fixtureDir,
+    "sample1_R1.trimmed.fastq.gz"
+)
+
+def pairedRead2 = new File(
+    fixtureDir,
+    "sample1_R2.trimmed.fastq.gz"
+)
+
+def singleRead = new File(
+    fixtureDir,
+    "sample2.trimmed.fastq.gz"
+)
+
+
+writeGzip(
+    pairedRead1,
+    """\
+@read1
+${sequence}
++
+${quality}
+@read2
+${sequence}
++
+${quality}
+""".stripIndent()
+)
+
+
+writeGzip(
+    pairedRead2,
+    """\
+@read1
+${sequence}
++
+${quality}
+@read2
+${sequence}
++
+${quality}
+""".stripIndent()
+)
+
+
+writeGzip(
+    singleRead,
+    """\
+@read1
+${sequence}
++
+${quality}
+@read2
+${sequence}
++
+${quality}
+""".stripIndent()
+)
+
+
+nextflow_process {
+
+    name "Test FALCO_TRIM integration"
+    tag "integration"
+
+    script "../modules/local/falco_trim/main.nf"
+    process "FALCO_TRIM"
+
+
+    test("Should run Falco on real paired trimmed FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.size() == 2
+
+                def outputFiles = files.collect {
+                    path(it).toFile()
+                }
+
+                assert outputFiles.every {
+                    it.exists() &&
+                    it.length() > 0
+                }
+
+                assert outputFiles.collect {
+                    it.name
+                }.sort() == [
+                    'sample1_R1_trimmed_fastqc_data.txt',
+                    'sample1_R2_trimmed_fastqc_data.txt'
+                ]
+            }
+
+
+            with(process.out.html) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.size() == 2
+
+                assert files.collect {
+                    path(it).toFile()
+                }.every {
+                    it.exists() &&
+                    it.length() > 0
+                }
+            }
+
+
+            with(process.out.summary) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.size() == 2
+
+                assert files.collect {
+                    path(it).toFile()
+                }.every {
+                    it.exists()
+                }
+            }
+        }
+    }
+
+
+    test("Should run Falco on a real single-end trimmed FASTQ file") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample2',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${singleRead.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample2'
+
+                def file = path(
+                    result[1]
+                ).toFile()
+
+                assert file.name ==
+                    'sample2_trimmed_fastqc_data.txt'
+
+                assert file.exists()
+                assert file.length() > 0
+            }
+        }
+    }
+}

@@ -6,6 +6,7 @@ include { REFERENCE_PREPARATION } from './subworkflows/local/reference_preparati
 include { QUANTIFICATION }        from './subworkflows/local/quantification/main'
 
 include { FALCO }                 from './modules/local/falco/main'
+include { FALCO_TRIM }            from './modules/local/falco_trim/main'
 include { CUTADAPT }              from './modules/local/cutadapt/main'
 include { SALMON_QUANT }          from './modules/local/salmon_quant/main'
 include { MULTIQC }               from './modules/local/multiqc/main'
@@ -104,6 +105,13 @@ workflow {
         )
 
         /*
+         * Trimmed-read quality control
+         */
+        FALCO_TRIM(
+            CUTADAPT.out.reads
+        )
+
+        /*
          * Transcript and gene abundance quantification.
          */
         if (params.genome) {
@@ -114,7 +122,6 @@ workflow {
                 REFERENCE_PREPARATION.out.gtf
             )
         }
-
 
         /*
          * Collect QC reports for MultiQC.
@@ -137,10 +144,20 @@ workflow {
                 report
             }
 
+        ch_falco_trim_multiqc = FALCO_TRIM.out.data
+            .map {
+                meta,
+                files ->
+
+                files
+            }
+            .flatten()
+
 
         ch_multiqc_files = ch_falco_multiqc
-            .mix(
-                ch_cutadapt_multiqc
+            .concat(
+                ch_cutadapt_multiqc,
+                ch_falco_trim_multiqc
             )
             .collect()
 

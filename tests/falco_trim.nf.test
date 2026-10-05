@@ -1,0 +1,375 @@
+ /*
+ * Process-level tests for FALCO_TRIM.
+ *
+ * Stub mode verifies the process contract without running Falco.
+ *
+ * Contract:
+ *
+ * input:
+ *   tuple(meta, [1 or 2 trimmed FASTQ files])
+ *
+ * output:
+ *   trimmed-read Falco data, HTML report, and summary files
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-falco-trim"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def makeFastq = { String filename ->
+
+    def target = new File(
+        fixtureDir,
+        filename
+    )
+
+    target.text = """\
+@read1
+ACGTACGTACGTACGT
++
+IIIIIIIIIIIIIIII
+""".stripIndent()
+
+    target
+}
+
+
+def singleRead = makeFastq(
+    "single.trimmed.fastq.gz"
+)
+
+def pairedRead1 = makeFastq(
+    "sample_R1.trimmed.fastq.gz"
+)
+
+def pairedRead2 = makeFastq(
+    "sample_R2.trimmed.fastq.gz"
+)
+
+def thirdRead = makeFastq(
+    "sample_R3.trimmed.fastq.gz"
+)
+
+
+nextflow_process {
+
+    name "Test FALCO_TRIM"
+    tag "ci"
+
+    script "../modules/local/falco_trim/main.nf"
+    process "FALCO_TRIM"
+
+    options "-stub-run"
+
+
+    test("Should create separate trimmed-read reports for paired-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample1'
+
+                def files = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.collect {
+                    new File(it.toString()).name
+                }.sort() == [
+                    'sample1_R1_trimmed_fastqc_data.txt',
+                    'sample1_R2_trimmed_fastqc_data.txt'
+                ]
+            }
+
+
+            with(process.out.html) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.collect {
+                    new File(it.toString()).name
+                }.sort() == [
+                    'sample1_R1_trimmed_fastqc_report.html',
+                    'sample1_R2_trimmed_fastqc_report.html'
+                ]
+            }
+
+
+            with(process.out.summary) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.collect {
+                    new File(it.toString()).name
+                }.sort() == [
+                    'sample1_R1_trimmed_summary.txt',
+                    'sample1_R2_trimmed_summary.txt'
+                ]
+            }
+        }
+    }
+
+
+    test("Should create one trimmed-read report set for single-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample2',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${singleRead.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+
+            with(process.out.data) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample2'
+
+                def files = result[1] instanceof List
+                    ? result[1]
+                    : [result[1]]
+
+                assert files.size() == 1
+
+                assert new File(
+                    files[0].toString()
+                ).name ==
+                    'sample2_trimmed_fastqc_data.txt'
+            }
+
+
+            with(process.out.html) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.size() == 1
+
+                assert new File(
+                    files[0].toString()
+                ).name ==
+                    'sample2_trimmed_fastqc_report.html'
+            }
+
+
+            with(process.out.summary) {
+
+                def files = get(0)[1] instanceof List
+                    ? get(0)[1]
+                    : [get(0)[1]]
+
+                assert files.size() == 1
+
+                assert new File(
+                    files[0].toString()
+                ).name ==
+                    'sample2_trimmed_summary.txt'
+            }
+        }
+    }
+
+
+    test("Should preserve sample metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample3',
+                            single_end: false,
+                            condition: 'treated',
+                            batch: 'batch1'
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+
+            with(process.out.data) {
+
+                def meta = get(0)[0]
+
+                assert meta.id ==
+                    'sample3'
+
+                assert meta.single_end == false
+
+                assert meta.condition ==
+                    'treated'
+
+                assert meta.batch ==
+                    'batch1'
+            }
+
+
+            with(process.out.html) {
+
+                assert get(0)[0].condition ==
+                    'treated'
+            }
+
+
+            with(process.out.summary) {
+
+                assert get(0)[0].batch ==
+                    'batch1'
+            }
+        }
+    }
+
+
+    test("Should reject more than two FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'invalid',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${thirdRead.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+
+
+    test("Should reject inconsistent single-end metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'invalid',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${pairedRead1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${pairedRead2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ]
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+}
