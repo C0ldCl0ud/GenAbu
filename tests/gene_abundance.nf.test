@@ -16,6 +16,7 @@ def sample1 = new File(
 
 sample1.text = """\
 Name\tLength\tEffectiveLength\tTPM\tNumReads
+1\t1000\t800\t0.0\t0.0
 geneA\t1000\t800\t100.0\t25.5
 geneB\t500\t400\t900.0\t75.5
 """.stripIndent()
@@ -28,8 +29,23 @@ def sample2 = new File(
 
 sample2.text = """\
 Name\tLength\tEffectiveLength\tTPM\tNumReads
+2\t1000\t800\t0.0\t0.0
 geneA\t1000\t800\t200.0\t30.0
 geneB\t500\t400\t800.0\t70.0
+""".stripIndent()
+
+
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf"
+)
+
+gtf.text = """\
+##gtf-version 3
+1\ttest\tgene\t1\t1000\t.\t+\t.\tgene_id "geneA"; gene_name "Gene A";
+1\ttest\ttranscript\t1\t1000\t.\t+\t.\tgene_id "geneA"; transcript_id "txA";
+1\ttest\tgene\t2000\t3000\t.\t+\t.\tgene_id "geneB"; gene_name "Gene B";
+1\ttest\ttranscript\t2000\t3000\t.\t+\t.\tgene_id "geneB"; transcript_id "txB";
 """.stripIndent()
 
 
@@ -60,6 +76,13 @@ nextflow_process {
                             checkIfExists: true
                         )
                     ]
+                )
+
+                input[1] = Channel.value(
+                    file(
+                        '${gtf.canonicalPath}',
+                        checkIfExists: true
+                    )
                 )
                 """
             }
@@ -117,6 +140,13 @@ nextflow_process {
                             checkIfExists: true
                         )
                     ]
+                )
+
+                input[1] = Channel.value(
+                    file(
+                        '${gtf.canonicalPath}',
+                        checkIfExists: true
+                    )
                 )
                 """
             }
