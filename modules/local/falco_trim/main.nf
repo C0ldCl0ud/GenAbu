@@ -41,13 +41,13 @@ process FALCO_TRIM {
         def falco_trim_dir = read.name.replaceFirst(/(\.fastq|\.fq)(\.gz)?$/, '')
 
         """
-        mv "falco_out/${falco_trim_dir}/_fastqc_data.txt" \
+        mv "falco_out/${falco_trim_dir}/fastqc_data.txt" \
             "${meta.id}${suffix}_trimmed_fastqc_data.txt"
 
-        mv "falco_out/${falco_trim_dir}/_fastqc_report.html" \
+        mv "falco_out/${falco_trim_dir}/fastqc_report.html" \
             "${meta.id}${suffix}_trimmed_fastqc_report.html"
 
-        mv "falco_out/${falco_trim_dir}/_summary.txt" \
+        mv "falco_out/${falco_trim_dir}/summary.txt" \
             "${meta.id}${suffix}_trimmed_summary.txt"
         """
     }.join("\n")
