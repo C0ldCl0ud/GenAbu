@@ -187,6 +187,7 @@ workflow {
                 .concat(
                     ch_salmon_multiqc
                 )
+                .collect()
         }
 
         ch_multiqc_config = Channel.value(
