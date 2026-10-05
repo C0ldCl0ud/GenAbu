@@ -1,0 +1,418 @@
+/*
+ * Process-level contract tests for SALMON_QUANT.
+ *
+ * CI uses stub mode:
+ *   - no Salmon installation required
+ *   - no real mapping performed
+ *
+ * Contract:
+ *
+ * input:
+ *   tuple(
+ *     meta,
+ *     trimmed FASTQ reads,
+ *     Salmon index,
+ *     GTF
+ *   )
+ *
+ * output:
+ *   sample.salmon/
+ *   sample.quant.sf
+ *   sample.quant.genes.sf
+ *   Salmon metadata JSON files
+ *   versions.yml
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-salmon-quant"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+def read1 = new File(
+    fixtureDir,
+    "sample_R1.fastq.gz"
+)
+
+writeGzip(
+    read1,
+    """\
+@read1
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
++
+IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+""".stripIndent()
+)
+
+
+def read2 = new File(
+    fixtureDir,
+    "sample_R2.fastq.gz"
+)
+
+writeGzip(
+    read2,
+    """\
+@read1
+TGCATGCATGCATGCATGCATGCATGCATGCATGCATGCA
++
+IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+""".stripIndent()
+)
+
+
+def indexDir = new File(
+    fixtureDir,
+    "salmon_index"
+)
+
+indexDir.mkdirs()
+
+new File(
+    indexDir,
+    "info.json"
+).text = '{"stub": true}\n'
+
+
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf.gz"
+)
+
+writeGzip(
+    gtf,
+    """\
+chr1\tGenAbu\ttranscript\t1\t100\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t100\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+""".stripIndent()
+)
+
+
+nextflow_process {
+
+    name "Test SALMON_QUANT"
+    tag "ci"
+
+    script "../modules/local/salmon_quant/main.nf"
+    process "SALMON_QUANT"
+
+    options "-stub-run"
+
+
+    test("Should quantify paired-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample1',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${read1.canonicalPath}',
+                                checkIfExists: true
+                            ),
+                            file(
+                                '${read2.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ],
+                        file(
+                            '${indexDir.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+
+            with(process.out.transcript_quant) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample1'
+
+                def quant = path(
+                    result[1]
+                ).toFile()
+
+                assert quant.name ==
+                    'sample1.quant.sf'
+
+                assert quant.exists()
+                assert quant.length() > 0
+
+                assert quant.text.contains(
+                    'ENSTUB000001'
+                )
+            }
+
+
+            with(process.out.gene_quant) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample1'
+
+                def quant = path(
+                    result[1]
+                ).toFile()
+
+                assert quant.name ==
+                    'sample1.quant.genes.sf'
+
+                assert quant.exists()
+                assert quant.length() > 0
+
+                assert quant.text.contains(
+                    'GENESTUB000001'
+                )
+            }
+        }
+    }
+
+
+    test("Should quantify single-end reads") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample2',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${read1.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ],
+                        file(
+                            '${indexDir.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+            with(process.out.results) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample2'
+
+                def resultDir = path(
+                    result[1]
+                ).toFile()
+
+                assert resultDir.name ==
+                    'sample2.salmon'
+
+                assert resultDir.isDirectory()
+            }
+        }
+    }
+
+
+    test("Should preserve sample metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample3',
+                            single_end: true,
+                            condition: 'control',
+                            custom_field: 'preserved'
+                        ],
+                        [
+                            file(
+                                '${read1.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ],
+                        file(
+                            '${indexDir.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.gene_quant) {
+
+                def meta = get(0)[0]
+
+                assert meta.id ==
+                    'sample3'
+
+                assert meta.single_end == true
+
+                assert meta.condition ==
+                    'control'
+
+                assert meta.custom_field ==
+                    'preserved'
+            }
+        }
+    }
+
+
+    test("Should reject inconsistent single-end metadata") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'invalid',
+                            single_end: false
+                        ],
+                        [
+                            file(
+                                '${read1.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ],
+                        file(
+                            '${indexDir.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+        }
+    }
+
+
+    test("Should emit the Salmon version") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.of(
+                    tuple(
+                        [
+                            id: 'sample4',
+                            single_end: true
+                        ],
+                        [
+                            file(
+                                '${read1.canonicalPath}',
+                                checkIfExists: true
+                            )
+                        ],
+                        file(
+                            '${indexDir.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${gtf.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(
+                    get(0)
+                ).toFile()
+
+                assert versions.exists()
+
+                assert versions.text.contains(
+                    'salmon: "2.7.0"'
+                )
+            }
+        }
+    }
+}
