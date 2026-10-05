@@ -1,0 +1,124 @@
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-gene-abundance-integration"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def sampleB = new File(
+    fixtureDir,
+    "sampleB.quant.genes.sf"
+)
+
+sampleB.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+geneA\t1000\t800\t200.25\t30.5
+geneB\t500\t400\t800.75\t69.5
+""".stripIndent()
+
+
+/*
+ * Deliberately reverse gene order to ensure aggregation matches
+ * by gene ID rather than row number.
+ */
+def sampleA = new File(
+    fixtureDir,
+    "sampleA.quant.genes.sf"
+)
+
+sampleA.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+geneB\t500\t400\t900.0\t75.5
+geneA\t1000\t800\t100.0\t25.5
+""".stripIndent()
+
+
+nextflow_process {
+
+    name "Test GENE_ABUNDANCE integration"
+    tag "integration"
+
+    script "../modules/local/gene_abundance/main.nf"
+    process "GENE_ABUNDANCE"
+
+
+    test("Should aggregate counts and TPM by gene ID") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.value(
+                    [
+                        file(
+                            '${sampleB.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${sampleA.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+
+            with(process.out.counts) {
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                def lines = output.readLines()
+
+                /*
+                 * Samples are sorted deterministically.
+                 */
+                assert lines[0] ==
+                    'gene_id\tsampleA\tsampleB'
+
+                /*
+                 * Gene order comes from the first processed file,
+                 * but values must be matched by gene ID.
+                 */
+                assert lines.contains(
+                    'geneA\t25.5\t30.5'
+                )
+
+                assert lines.contains(
+                    'geneB\t75.5\t69.5'
+                )
+            }
+
+
+            with(process.out.abundance) {
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                def lines = output.readLines()
+
+                assert lines[0] ==
+                    'gene_id\tsampleA\tsampleB'
+
+                assert lines.contains(
+                    'geneA\t100.0\t200.25'
+                )
+
+                assert lines.contains(
+                    'geneB\t900.0\t800.75'
+                )
+            }
+        }
+    }
+}

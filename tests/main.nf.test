@@ -281,6 +281,7 @@ nextflow_pipeline {
              * Quantification:
              *
              *   SALMON_QUANT
+             *   GENE_ABUNDANCE
              *
              * Total = 8
              */
