@@ -3,7 +3,8 @@
  *
  * These tests verify top-level orchestration:
  *
- *   - FASTQ input is routed through FALCO, CUTADAPT, and MULTIQC.
+ *   - FASTQ input is routed through raw QC, trimming,
+ *     trimmed-read QC, and MultiQC.
  *   - SRA input is prepared through SRA_INPUT before read processing.
  *   - PDF input is resolved before SRA and read processing.
  *   - resolve_only stops after paper accession resolution.
@@ -75,15 +76,6 @@ validPaper.setText(
 )
 
 
-/*
- * Empty persistent reference cache.
- *
- * Supplying --genome mouse therefore requires:
- *
- *   REFERENCE_DOWNLOAD
- *   TRANSCRIPTOME_GENERATE
- *   SALMON_INDEX
- */
 def referenceCache = new File(
     fixtureDir,
     "reference-cache"
@@ -103,10 +95,6 @@ nextflow_pipeline {
 
     script "../main.nf"
 
-    /*
-     * Normal continuous integration never executes the real
-     * bioinformatics tools.
-     */
     options "-stub-run"
 
 
@@ -114,7 +102,7 @@ nextflow_pipeline {
     // FASTQ without reference
     // =========================================================================
 
-    test("Should route FASTQ input through read processing") {
+    test("Should route FASTQ input through raw and trimmed-read QC") {
 
         when {
             params {
@@ -127,17 +115,15 @@ nextflow_pipeline {
             assert workflow.exitStatus == 0
 
             /*
-             * No genome was supplied.
-             *
              * FALCO
              * CUTADAPT
+             * FALCO_TRIM
              * MULTIQC
              *
-             * Reference preparation and Salmon quantification
-             * are not invoked.
+             * Total = 4
              */
-            assert workflow.trace.tasks().size() == 3
-            assert workflow.trace.succeeded().size() == 3
+            assert workflow.trace.tasks().size() == 4
+            assert workflow.trace.succeeded().size() == 4
         }
     }
 
@@ -163,10 +149,13 @@ nextflow_pipeline {
              * FASTERQ_DUMP
              * FALCO
              * CUTADAPT
+             * FALCO_TRIM
              * MULTIQC
+             *
+             * Total = 6
              */
-            assert workflow.trace.tasks().size() == 5
-            assert workflow.trace.succeeded().size() == 5
+            assert workflow.trace.tasks().size() == 6
+            assert workflow.trace.succeeded().size() == 6
         }
     }
 
@@ -195,10 +184,13 @@ nextflow_pipeline {
              * FASTERQ_DUMP
              * FALCO
              * CUTADAPT
+             * FALCO_TRIM
              * MULTIQC
+             *
+             * Total = 9
              */
-            assert workflow.trace.tasks().size() == 8
-            assert workflow.trace.succeeded().size() == 8
+            assert workflow.trace.tasks().size() == 9
+            assert workflow.trace.succeeded().size() == 9
         }
     }
 
@@ -225,7 +217,7 @@ nextflow_pipeline {
              * ACCESSION_EXTRACTOR
              * ACCESSION_RESOLVER
              *
-             * Nothing downstream should run.
+             * Total = 3
              */
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
@@ -247,11 +239,6 @@ nextflow_pipeline {
             assert workflow.success
             assert workflow.exitStatus == 0
 
-            /*
-             * PDF_TO_TEXT
-             * ACCESSION_EXTRACTOR
-             * ACCESSION_RESOLVER
-             */
             assert workflow.trace.tasks().size() == 3
             assert workflow.trace.succeeded().size() == 3
         }
@@ -259,7 +246,7 @@ nextflow_pipeline {
 
 
     // =========================================================================
-    // FASTQ + complete reference preparation + quantification
+    // FASTQ + reference + quantification
     // =========================================================================
 
     test("Should quantify trimmed FASTQ reads when genome is supplied") {
@@ -282,9 +269,10 @@ nextflow_pipeline {
              *
              *   FALCO
              *   CUTADAPT
+             *   FALCO_TRIM
              *   MULTIQC
              *
-             * Reference preparation from empty cache:
+             * Reference preparation:
              *
              *   REFERENCE_DOWNLOAD
              *   TRANSCRIPTOME_GENERATE
@@ -294,10 +282,10 @@ nextflow_pipeline {
              *
              *   SALMON_QUANT
              *
-             * Total = 7
+             * Total = 8
              */
-            assert workflow.trace.tasks().size() == 7
-            assert workflow.trace.succeeded().size() == 7
+            assert workflow.trace.tasks().size() == 8
+            assert workflow.trace.succeeded().size() == 8
         }
     }
 }
