@@ -104,6 +104,13 @@ workflow {
         )
 
         /*
+         * Trimmed-read quality control
+         */
+        FALCO_TRIM(
+            CUTADAPT.reads
+        )
+
+        /*
          * Transcript and gene abundance quantification.
          */
         if (params.genome) {
@@ -114,7 +121,6 @@ workflow {
                 REFERENCE_PREPARATION.out.gtf
             )
         }
-
 
         /*
          * Collect QC reports for MultiQC.
@@ -137,10 +143,20 @@ workflow {
                 report
             }
 
+        ch_falco_trim_multiqc = FALCO_TRIM-out.data
+            .map {
+                meta,
+                files ->
+
+                files
+            }
+            .flatten()
+
 
         ch_multiqc_files = ch_falco_multiqc
-            .mix(
-                ch_cutadapt_multiqc
+            .concat(
+                ch_cutadapt_multiqc,
+                ch_falco_trim_multiqc
             )
             .collect()
 
