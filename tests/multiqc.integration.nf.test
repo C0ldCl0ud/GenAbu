@@ -1,8 +1,16 @@
 /*
  * Real integration test for MULTIQC.
  *
- * This test feeds minimal Falco / FastQC-compatible data files
- * into MultiQC and verifies that both samples are parsed.
+ * This test feeds raw and trimmed Falco / FastQC-compatible
+ * data files into MultiQC.
+ *
+ * It verifies that:
+ *
+ *   - the GenAbu MultiQC configuration is loaded
+ *   - raw read QC is parsed
+ *   - post-trimming read QC is parsed separately
+ *   - the configured section names appear in the report
+ *   - the raw QC section appears before the trimmed QC section
  *
  * Run with:
  *
@@ -17,7 +25,14 @@ def fixtureDir = new File(
     ".nf-test/generated-multiqc-integration"
 )
 
+fixtureDir.deleteDir()
 fixtureDir.mkdirs()
+
+
+def multiqcConfig = new File(
+    rootDir,
+    "assets/multiqc_config.yml"
+).canonicalPath
 
 
 def makeFalcoReport = {
@@ -49,18 +64,41 @@ Sequence length\t100
 }
 
 
-def falcoR1 = makeFalcoReport(
+// =============================================================================
+// Raw-read Falco reports
+// =============================================================================
+
+def rawR1 = makeFalcoReport(
     "sample1_R1_fastqc_data.txt",
     "sample1_R1.fastq.gz",
     1000,
     48
 )
 
-def falcoR2 = makeFalcoReport(
+def rawR2 = makeFalcoReport(
     "sample1_R2_fastqc_data.txt",
     "sample1_R2.fastq.gz",
     1000,
     51
+)
+
+
+// =============================================================================
+// Post-trimming Falco reports
+// =============================================================================
+
+def trimmedR1 = makeFalcoReport(
+    "sample1_R1_trimmed_fastqc_data.txt",
+    "sample1_R1.trimmed.fastq.gz",
+    950,
+    49
+)
+
+def trimmedR2 = makeFalcoReport(
+    "sample1_R2_trimmed_fastqc_data.txt",
+    "sample1_R2.trimmed.fastq.gz",
+    950,
+    50
 )
 
 
@@ -73,7 +111,7 @@ nextflow_process {
     process "MULTIQC"
 
 
-    test("Should parse real Falco-compatible QC reports") {
+    test("Should separate raw and trimmed read QC using GenAbu config") {
 
         when {
             process {
@@ -81,14 +119,29 @@ nextflow_process {
                 input[0] = Channel.of(
                     [
                         file(
-                            '${falcoR1.canonicalPath}',
+                            '${rawR1.canonicalPath}',
                             checkIfExists: true
                         ),
                         file(
-                            '${falcoR2.canonicalPath}',
+                            '${rawR2.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${trimmedR1.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${trimmedR2.canonicalPath}',
                             checkIfExists: true
                         )
                     ]
+                )
+
+                input[1] = Channel.value(
+                    file(
+                        '${multiqcConfig}',
+                        checkIfExists: true
+                    )
                 )
                 """
             }
@@ -97,51 +150,125 @@ nextflow_process {
         then {
             assert process.success
             assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
 
             with(process.out.report) {
 
                 assert size() == 1
 
-                def report = path(get(0))
+                def report = path(
+                    get(0)
+                ).toFile()
 
                 assert report.exists()
-                assert report.name == 'multiqc_report.html'
+
+                assert report.name ==
+                    'multiqc_report.html'
+
 
                 def html = report.text
 
-                assert html.contains('sample1_R1')
-                assert html.contains('sample1_R2')
+
+                /*
+                 * Verify that our custom report configuration
+                 * was actually loaded.
+                 */
+                assert html.contains(
+                    'GenAbu RNA-seq Report'
+                )
+
+
+                /*
+                 * The same FastQC-compatible module is run twice
+                 * with different path filters.
+                 */
+                assert html.contains(
+                    'Read QC — Raw'
+                )
+
+                assert html.contains(
+                    'Read QC — After trimming'
+                )
+
+
+                /*
+                 * Verify that data from both stages was parsed.
+                 */
+                assert html.contains(
+                    'sample1_R1'
+                )
+
+                assert html.contains(
+                    'sample1_R2'
+                )
+
+                assert html.contains(
+                    'sample1_R1.trimmed'
+                )
+
+                assert html.contains(
+                    'sample1_R2.trimmed'
+                )
+
+
+                /*
+                 * Raw QC must appear before post-trimming QC
+                 * according to module_order.
+                 */
+                def rawIndex = html.indexOf(
+                    'Read QC — Raw'
+                )
+
+                def trimmedIndex = html.indexOf(
+                    'Read QC — After trimming'
+                )
+
+                assert rawIndex >= 0
+                assert trimmedIndex >= 0
+                assert rawIndex < trimmedIndex
             }
+
 
             with(process.out.data) {
 
                 assert size() == 1
 
-                def dataDir = path(get(0))
+                def dataDir = path(
+                    get(0)
+                ).toFile()
 
                 assert dataDir.isDirectory()
 
-                def fastqcData = new File(
-                    dataDir.toString(),
-                    'multiqc_fastqc.txt'
-                )
 
-                assert fastqcData.exists()
+                /*
+                 * A real MultiQC run should create populated
+                 * machine-readable output.
+                 *
+                 * Do not depend on a specific FastQC data filename
+                 * here because two configured instances of the
+                 * FastQC module may use different output names.
+                 */
+                def dataFiles = dataDir.listFiles()
 
-                def contents = fastqcData.text
-
-                assert contents.contains('sample1_R1')
-                assert contents.contains('sample1_R2')
+                assert dataFiles != null
+                assert dataFiles.size() > 0
             }
+
 
             with(process.out.versions) {
 
                 assert size() == 1
 
-                def versions = path(get(0))
+                def versions = path(
+                    get(0)
+                ).toFile()
 
                 assert versions.exists()
-                assert versions.text.contains('multiqc:')
+
+                assert versions.text.contains(
+                    'multiqc:'
+                )
             }
         }
     }

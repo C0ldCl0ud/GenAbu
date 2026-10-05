@@ -1,0 +1,22 @@
+title: "GenAbu RNA-seq Report"
+
+module_order:
+  - fastqc:
+      name: "Read QC — Raw"
+      anchor: "read_qc_raw"
+      info: "Quality control of input reads before adapter and quality trimming."
+      path_filters:
+        - "*_fastqc_data.txt"
+      path_filters_exclude:
+        - "*_trimmed_fastqc_data.txt"
+
+  - cutadapt
+
+  - fastqc:
+      name: "Read QC — After trimming"
+      anchor: "read_qc_trimmed"
+      info: "Quality control of reads after Cutadapt trimming."
+      path_filters:
+        - "*_trimmed_fastqc_data.txt"
+
+  - salmon
