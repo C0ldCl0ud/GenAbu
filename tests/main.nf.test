@@ -283,10 +283,10 @@ nextflow_pipeline {
              *   SALMON_QUANT
              *   GENE_ABUNDANCE
              *
-             * Total = 8
+             * Total = 9
              */
-            assert workflow.trace.tasks().size() == 8
-            assert workflow.trace.succeeded().size() == 8
+            assert workflow.trace.tasks().size() == 9
+            assert workflow.trace.succeeded().size() == 9
         }
     }
 }
