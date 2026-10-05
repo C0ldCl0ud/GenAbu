@@ -10,6 +10,7 @@ include { FALCO_TRIM }            from './modules/local/falco_trim/main'
 include { CUTADAPT }              from './modules/local/cutadapt/main'
 include { SALMON_QUANT }          from './modules/local/salmon_quant/main'
 include { MULTIQC }               from './modules/local/multiqc/main'
+include { GENE_ABUNDANCE }        from './modules/local/gene_abundance/main'
 
 
 workflow {
@@ -39,9 +40,6 @@ workflow {
 
         /*
          * Reference preparation.
-         *
-         * Reference preparation remains optional for now because
-         * Salmon quantification has not yet been wired into the pipeline.
          */
         if (params.genome) {
 
@@ -121,6 +119,21 @@ workflow {
                 REFERENCE_PREPARATION.out.salmon_index,
                 REFERENCE_PREPARATION.out.gtf
             )
+
+                ch_gene_quant_files = QUANTIFICATION.out.gene_quant
+                .map {
+                    meta,
+                    gene_quant ->
+
+                    gene_quant
+                }
+                .collect()
+
+
+            GENE_ABUNDANCE(
+                ch_gene_quant_files
+            )
+
         }
 
         /*

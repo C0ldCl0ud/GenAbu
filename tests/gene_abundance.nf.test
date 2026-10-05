@@ -1,0 +1,142 @@
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-gene-abundance"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+def sample1 = new File(
+    fixtureDir,
+    "sample1.quant.genes.sf"
+)
+
+sample1.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+geneA\t1000\t800\t100.0\t25.5
+geneB\t500\t400\t900.0\t75.5
+""".stripIndent()
+
+
+def sample2 = new File(
+    fixtureDir,
+    "sample2.quant.genes.sf"
+)
+
+sample2.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+geneA\t1000\t800\t200.0\t30.0
+geneB\t500\t400\t800.0\t70.0
+""".stripIndent()
+
+
+nextflow_process {
+
+    name "Test GENE_ABUNDANCE"
+    tag "ci"
+
+    script "../modules/local/gene_abundance/main.nf"
+    process "GENE_ABUNDANCE"
+
+    options "-stub-run"
+
+
+    test("Should emit gene count and abundance matrices") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.value(
+                    [
+                        file(
+                            '${sample1.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${sample2.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+            assert process.trace.tasks().size() == 1
+
+
+            with(process.out.counts) {
+
+                assert size() == 1
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                assert output.name ==
+                    'gene_counts.tsv'
+
+                assert output.exists()
+                assert output.length() > 0
+            }
+
+
+            with(process.out.abundance) {
+
+                assert size() == 1
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                assert output.name ==
+                    'gene_abundance.tsv'
+
+                assert output.exists()
+                assert output.length() > 0
+            }
+        }
+    }
+
+
+    test("Should emit the Python version") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.value(
+                    [
+                        file(
+                            '${sample1.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            with(process.out.versions) {
+
+                assert size() == 1
+
+                def versions = path(
+                    get(0)
+                ).toFile()
+
+                assert versions.text.contains(
+                    'python: "3.13.7"'
+                )
+            }
+        }
+    }
+}
