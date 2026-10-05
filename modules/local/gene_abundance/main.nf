@@ -12,6 +12,7 @@ process GENE_ABUNDANCE {
 
     input:
     path gene_quant_files
+    path gtf
 
     output:
     path "gene_counts.tsv",
@@ -27,16 +28,144 @@ process GENE_ABUNDANCE {
     """
     python3 - <<'PY'
     import csv
+    import gzip
     import glob
     import os
-    import sys
+    import re
 
 
-    SUFFIX = ".quant.genes.sf"
+    SALMON_SUFFIX = ".quant.genes.sf"
+
+
+    def open_text(filename):
+
+        if filename.endswith(".gz"):
+            return gzip.open(
+                filename,
+                mode="rt",
+                encoding="utf-8"
+            )
+
+        return open(
+            filename,
+            mode="rt",
+            encoding="utf-8"
+        )
+
+
+    def read_annotated_genes(filename):
+
+        genes = []
+        seen = set()
+
+        gene_id_pattern = re.compile(
+            r'(?:^|;\\s*)gene_id\\s+"([^"]+)"'
+        )
+
+        with open_text(filename) as handle:
+
+            for line_number, line in enumerate(
+                handle,
+                start=1
+            ):
+
+                if not line.strip():
+                    continue
+
+                if line.startswith("#"):
+                    continue
+
+                fields = line.rstrip("\\n").split("\\t")
+
+                if len(fields) != 9:
+                    raise RuntimeError(
+                        f"{filename}:{line_number}: "
+                        "expected 9 GTF columns"
+                    )
+
+                feature = fields[2]
+
+
+                 # Only actual gene records define the output universe.
+                 # Transcript, exon, CDS, and other feature rows are ignored.
+
+                if feature != "gene":
+                    continue
+
+                attributes = fields[8]
+
+                match = gene_id_pattern.search(
+                    attributes
+                )
+
+                if match is None:
+                    raise RuntimeError(
+                        f"{filename}:{line_number}: "
+                        "gene feature is missing gene_id"
+                    )
+
+                gene_id = match.group(1)
+
+                if gene_id in seen:
+                    continue
+
+                seen.add(
+                    gene_id
+                )
+
+                genes.append(
+                    gene_id
+                )
+
+
+        if not genes:
+            raise RuntimeError(
+                f"No annotated genes were found in {filename}"
+            )
+
+        return genes
+
+
+
+     # Locate the annotation staged by Nextflow.
+
+    gtf_candidates = [
+        filename
+        for filename in glob.glob("*")
+        if (
+            filename.endswith(".gtf")
+            or filename.endswith(".gtf.gz")
+        )
+    ]
+
+    if len(gtf_candidates) != 1:
+        raise RuntimeError(
+            "GENE_ABUNDANCE expected exactly one GTF file, "
+            f"found {len(gtf_candidates)}"
+        )
+
+    gtf_file = gtf_candidates[0]
+
+
+
+     # The GTF defines which identifiers are real genes.
+
+     # This excludes Salmon decoy entries such as chromosome names
+     # introduced by a decoy-aware transcriptome index.
+
+    annotated_gene_order = read_annotated_genes(
+        gtf_file
+    )
+
+    annotated_genes = set(
+        annotated_gene_order
+    )
 
 
     files = sorted(
-        glob.glob(f"*{SUFFIX}")
+        glob.glob(
+            f"*{SALMON_SUFFIX}"
+        )
     )
 
     if not files:
@@ -47,20 +176,25 @@ process GENE_ABUNDANCE {
 
     samples = []
     data = {}
-    gene_order = None
     expected_genes = None
 
 
     for filename in files:
 
-        basename = os.path.basename(filename)
+        basename = os.path.basename(
+            filename
+        )
 
-        if not basename.endswith(SUFFIX):
+        if not basename.endswith(
+            SALMON_SUFFIX
+        ):
             raise RuntimeError(
                 f"Unexpected gene quantification filename: {basename}"
             )
 
-        sample = basename[:-len(SUFFIX)]
+        sample = basename[
+            :-len(SALMON_SUFFIX)
+        ]
 
         if not sample:
             raise RuntimeError(
@@ -72,7 +206,9 @@ process GENE_ABUNDANCE {
                 f"Duplicate sample ID: {sample}"
             )
 
-        samples.append(sample)
+        samples.append(
+            sample
+        )
 
 
         with open(
@@ -96,17 +232,20 @@ process GENE_ABUNDANCE {
                 reader.fieldnames or []
             )
 
-            missing = required - columns
+            missing = (
+                required - columns
+            )
 
             if missing:
                 raise RuntimeError(
                     f"{basename} is missing required columns: "
-                    + ", ".join(sorted(missing))
+                    + ", ".join(
+                        sorted(missing)
+                    )
                 )
 
 
             sample_data = {}
-            current_order = []
 
 
             for row in reader:
@@ -118,30 +257,50 @@ process GENE_ABUNDANCE {
                         f"{basename} contains an empty gene ID"
                     )
 
+
+
+                 # Salmon decoy-aware indices can produce gene-level
+                 # entries whose names correspond to genomic decoys
+                 # such as chromosomes.
+
+                 # Only identifiers explicitly annotated as genes in
+                 # the reference GTF belong in the gene matrices.
+
+                if gene_id not in annotated_genes:
+                    continue
+
+
                 if gene_id in sample_data:
                     raise RuntimeError(
-                        f"{basename} contains duplicate gene ID: {gene_id}"
+                        f"{basename} contains duplicate gene ID: "
+                        f"{gene_id}"
                     )
+
 
                 sample_data[gene_id] = {
                     "TPM": row["TPM"],
                     "NumReads": row["NumReads"]
                 }
 
-                current_order.append(
-                    gene_id
-                )
-
 
         current_genes = set(
             sample_data
         )
 
+        if not current_genes:
+            raise RuntimeError(
+                f"{basename} contains no genes present in "
+                "the reference GTF"
+            )
+
+
+
+         # All samples quantified against the same reference should
+         # contain the same annotated gene set.
 
         if expected_genes is None:
 
             expected_genes = current_genes
-            gene_order = current_order
 
         elif current_genes != expected_genes:
 
@@ -172,7 +331,8 @@ process GENE_ABUNDANCE {
                 )
 
             raise RuntimeError(
-                f"Gene set differs between Salmon outputs for {sample}: "
+                f"Annotated gene set differs between Salmon outputs "
+                f"for {sample}: "
                 + "; ".join(details)
             )
 
@@ -181,8 +341,19 @@ process GENE_ABUNDANCE {
 
 
 
-     # Sort sample columns so output is deterministic regardless of
-     # Nextflow channel scheduling.
+     # Preserve annotation order while restricting the output to genes
+     # actually represented in the Salmon gene-level results.
+
+    gene_order = [
+        gene_id
+        for gene_id in annotated_gene_order
+        if gene_id in expected_genes
+    ]
+
+
+
+     # Make sample-column ordering deterministic regardless of
+     # Nextflow scheduling.
 
     samples = sorted(
         samples
@@ -211,6 +382,7 @@ process GENE_ABUNDANCE {
                 ["gene_id"] + samples
             )
 
+
             for gene_id in gene_order:
 
                 writer.writerow(
@@ -223,9 +395,11 @@ process GENE_ABUNDANCE {
                 )
 
 
-     # Salmon estimated counts.
-     # These may be fractional because Salmon performs probabilistic
-     # assignment of reads.
+
+     # Salmon-estimated gene counts.
+
+     # Values may be fractional because Salmon probabilistically
+     # assigns reads.
 
     write_matrix(
         "gene_counts.tsv",
@@ -234,7 +408,7 @@ process GENE_ABUNDANCE {
 
 
 
-    # TPM = Transcripts Per Million.
+     # TPM = Transcripts Per Million.
 
     write_matrix(
         "gene_abundance.tsv",

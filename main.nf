@@ -138,8 +138,18 @@ workflow {
             }
 
 
+            ch_abundance_gtf = REFERENCE_PREPARATION.out.gtf
+                .map {
+                    reference,
+                    gtf_file ->
+
+                    gtf_file
+                }
+
+
             GENE_ABUNDANCE(
-                ch_gene_quant_files
+                ch_gene_quant_files,
+                ch_abundance_gtf
             )
 
         }
