@@ -1,5 +1,9 @@
 title: "GenAbu RNA-seq Report"
 
+output_fn_name: "multiqc_report.html"
+data_dir_name: "multiqc_data"
+plots_dir_name: "multiqc_plots"
+
 module_order:
   - fastqc:
       name: "Read QC — Raw"
