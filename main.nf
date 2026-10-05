@@ -3,9 +3,11 @@ include { INPUT_VALIDATOR }       from './subworkflows/local/input_validator/mai
 include { PAPER_ACCESSIONS }      from './subworkflows/local/paper_accessions/main'
 include { SRA_INPUT }             from './subworkflows/local/sra_input/main'
 include { REFERENCE_PREPARATION } from './subworkflows/local/reference_preparation/main'
+include { QUANTIFICATION }        from './subworkflows/local/quantification/main'
 
 include { FALCO }                 from './modules/local/falco/main'
 include { CUTADAPT }              from './modules/local/cutadapt/main'
+include { SALMON_QUANT }          from './modules/local/salmon_quant/main'
 include { MULTIQC }               from './modules/local/multiqc/main'
 
 
@@ -100,6 +102,18 @@ workflow {
             params.quality_cutoff,
             params.minimum_length
         )
+
+        /*
+         * Transcript and gene abundance quantification.
+         */
+        if (params.genome) {
+
+            QUANTIFICATION(
+                CUTADAPT.out.reads,
+                REFERENCE_PREPARATION.out.salmon_index,
+                REFERENCE_PREPARATION.out.gtf
+            )
+        }
 
 
         /*

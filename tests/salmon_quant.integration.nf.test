@@ -1,0 +1,392 @@
+/*
+ * Real integration test for Salmon indexing + quantification.
+ *
+ * This test:
+ *
+ *   1. creates a synthetic genome
+ *   2. creates the matching transcriptome
+ *   3. builds a real decoy-aware Salmon index
+ *   4. quantifies real synthetic FASTQ reads
+ *   5. checks transcript- and gene-level output
+ *
+ * Run with:
+ *
+ *   nf-test test \
+ *       tests/salmon_quant.integration.nf.test \
+ *       --profile docker
+ */
+
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-salmon-quant-integration"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+def writeGzip = { File target, String content ->
+
+    target.parentFile.mkdirs()
+
+    def output = new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(target)
+    )
+
+    try {
+        output.write(
+            content.getBytes("UTF-8")
+        )
+    }
+    finally {
+        output.close()
+    }
+}
+
+
+// =============================================================================
+// Synthetic reference
+// =============================================================================
+
+/*
+ * 120 bp transcript/genomic sequence.
+ *
+ * Long enough for Salmon's k = 31 index.
+ */
+def transcriptSequence =
+    "ACGTTGCA" * 15
+
+
+def transcript = new File(
+    fixtureDir,
+    "transcripts.fa.gz"
+)
+
+writeGzip(
+    transcript,
+    ">tx1\n${transcriptSequence}\n"
+)
+
+
+def genome = new File(
+    fixtureDir,
+    "genome.fa.gz"
+)
+
+writeGzip(
+    genome,
+    ">chr1\n${transcriptSequence}\n"
+)
+
+
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf.gz"
+)
+
+writeGzip(
+    gtf,
+    """\
+chr1\tGenAbu\ttranscript\t1\t120\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+chr1\tGenAbu\texon\t1\t120\t.\t+\t.\tgene_id "gene1"; transcript_id "tx1";
+""".stripIndent()
+)
+
+
+// =============================================================================
+// Synthetic FASTQ
+// =============================================================================
+
+/*
+ * Generate reads directly from the transcript so they are guaranteed
+ * to be compatible with the synthetic reference.
+ *
+ * Generate the quality strings from the sequence lengths so FASTQ
+ * sequence and quality lengths can never diverge.
+ */
+
+def read1Sequence =
+    transcriptSequence.substring(
+        0,
+        40
+    )
+
+def read2Sequence =
+    transcriptSequence.substring(
+        8,
+        48
+    )
+
+def read3Sequence =
+    transcriptSequence.substring(
+        16,
+        56
+    )
+
+
+def read1Quality =
+    "I" * read1Sequence.length()
+
+def read2Quality =
+    "I" * read2Sequence.length()
+
+def read3Quality =
+    "I" * read3Sequence.length()
+
+
+def reads = new File(
+    fixtureDir,
+    "reads.fastq.gz"
+)
+
+writeGzip(
+    reads,
+    """\
+@read1
+${read1Sequence}
++
+${read1Quality}
+@read2
+${read2Sequence}
++
+${read2Quality}
+@read3
+${read3Sequence}
++
+${read3Quality}
+""".stripIndent()
+)
+
+
+// =============================================================================
+// Salmon cache
+// =============================================================================
+
+def salmonCache = new File(
+    fixtureDir,
+    "salmon-cache"
+)
+
+salmonCache.mkdirs()
+
+
+// =============================================================================
+// Test
+// =============================================================================
+
+nextflow_workflow {
+
+    name "Test SALMON_QUANT integration"
+    tag "integration"
+
+    script "tests/workflows/salmon_quant_integration/main.nf"
+    workflow "SALMON_QUANT_INTEGRATION"
+
+
+    test("Should build an index and quantify real reads") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.value(
+                    file(
+                        '${transcript.canonicalPath}',
+                        checkIfExists: true
+                    )
+                )
+
+                input[1] = Channel.value(
+                    file(
+                        '${genome.canonicalPath}',
+                        checkIfExists: true
+                    )
+                )
+
+                input[2] = Channel.value(
+                    file(
+                        '${gtf.canonicalPath}',
+                        checkIfExists: true
+                    )
+                )
+
+                input[3] = Channel.value(
+                    file(
+                        '${reads.canonicalPath}',
+                        checkIfExists: true
+                    )
+                )
+
+                input[4] = Channel.value(
+                    '${salmonCache.canonicalPath}'
+                )
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.exitStatus == 0
+
+
+            /*
+             * Exactly two real processes should execute:
+             *
+             * SALMON_INDEX
+             * SALMON_QUANT
+             */
+            assert workflow.trace.tasks().size() == 2
+            assert workflow.trace.succeeded().size() == 2
+
+
+            // =================================================================
+            // Index
+            // =================================================================
+
+            with(workflow.out.index) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def reference = result[0]
+
+                assert reference.id ==
+                    'synthetic'
+
+                def indexDir = path(
+                    result[1]
+                ).toFile()
+
+                assert indexDir.name ==
+                    'salmon_index'
+
+                assert indexDir.isDirectory()
+
+                assert new File(
+                    indexDir,
+                    'info.json'
+                ).length() > 0
+
+                assert new File(
+                    indexDir,
+                    'refseq.bin'
+                ).length() > 0
+            }
+
+
+            // =================================================================
+            // Transcript quantification
+            // =================================================================
+
+            with(workflow.out.transcript_quant) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def meta = result[0]
+
+                assert meta.id ==
+                    'sample1'
+
+                assert meta.single_end == true
+
+
+                def quant = path(
+                    result[1]
+                ).toFile()
+
+                assert quant.name ==
+                    'sample1.quant.sf'
+
+                assert quant.exists()
+                assert quant.length() > 0
+
+                assert quant.text.contains(
+                    'Name'
+                )
+
+                assert quant.text.contains(
+                    'tx1'
+                )
+            }
+
+
+            // =================================================================
+            // Gene quantification
+            // =================================================================
+
+            with(workflow.out.gene_quant) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                def meta = result[0]
+
+                assert meta.id ==
+                    'sample1'
+
+
+                def quant = path(
+                    result[1]
+                ).toFile()
+
+                assert quant.name ==
+                    'sample1.quant.genes.sf'
+
+                assert quant.exists()
+                assert quant.length() > 0
+
+                assert quant.text.contains(
+                    'Name'
+                )
+
+                assert quant.text.contains(
+                    'gene1'
+                )
+            }
+
+
+            // =================================================================
+            // Complete Salmon result
+            // =================================================================
+
+            with(workflow.out.results) {
+
+                assert size() == 1
+
+                def result = get(0)
+
+                assert result[0].id ==
+                    'sample1'
+
+
+                def resultDir = path(
+                    result[1]
+                ).toFile()
+
+                assert resultDir.name ==
+                    'sample1.salmon'
+
+                assert resultDir.isDirectory()
+
+                assert new File(
+                    resultDir,
+                    'quant.sf'
+                ).length() > 0
+
+                assert new File(
+                    resultDir,
+                    'quant.genes.sf'
+                ).length() > 0
+            }
+        }
+    }
+}
