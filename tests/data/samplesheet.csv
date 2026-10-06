@@ -1,2 +1,2 @@
-sample,accession
-SRR6357070,SRR6357070
+sample,fastq_1,fastq_2
+SRR6357070,${projectDir}/tests/data/SRR6357070_1.fastq.gz,${projectDir}/tests/data/SRR6357070_2.fastq.gz

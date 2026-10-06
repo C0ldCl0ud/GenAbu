@@ -28,3 +28,19 @@
     - grcm39
   genome_url: https://ftp.ensembl.org/pub/release-116/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz
   gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/mus_musculus/Mus_musculus.GRCm39.116.gtf.gz
+
+- id: yeast
+  species: Saccharomyces cerevisiae
+  assembly: R64-1-1
+  assembly_version: R64-1-1
+  assembly_accession: GCA_000146045.2
+  source: Ensembl
+  release: 116
+  aliases:
+    - yeast
+    - saccharomyces cerevisiae
+    - saccharomyces_cerevisiae
+    - s288c
+    - r64-1-1
+  genome_url: https://ftp.ensembl.org/pub/release-116/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz
+  gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.63.gtf.gz

@@ -101,8 +101,21 @@ workflow INPUT_VALIDATOR {
     ch_fastq = typed_samplesheets
         .filter { input_type, samplesheet -> input_type == 'fastq' }
         .flatMap { input_type, samplesheet ->
+            def resolved_sheet =file(samplesheet)
+            def content = resolved_sheet.text
+
+            if (content.contains('${projectDir}')) {
+                resolved_sheet = java.nio.file.Files.createTempFile(
+                    'genabu_samplesheet_', '.csv'
+                )
+                resolved_sheet.toFile().deleteOnExit()
+                resolved_sheet.text = content.replace(
+                    '${projectDir}',
+                    projectDir.toString()
+                )
+            }
             samplesheetToList(
-                samplesheet,
+                resolved_sheet.toString(),
                 "${projectDir}/assets/schema_input.json"
             )
         }
