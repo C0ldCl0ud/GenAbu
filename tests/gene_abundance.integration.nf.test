@@ -1,0 +1,214 @@
+def rootDir = new File(".").canonicalFile
+
+def fixtureDir = new File(
+    rootDir,
+    ".nf-test/generated-gene-abundance-integration"
+)
+
+fixtureDir.deleteDir()
+fixtureDir.mkdirs()
+
+
+/*
+ * Each Salmon result deliberately contains a different chromosome
+ * decoy. These identifiers must not appear in the final matrices.
+ */
+def sampleB = new File(
+    fixtureDir,
+    "sampleB.quant.genes.sf"
+)
+
+sampleB.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+2\t1000000\t999800\t0.0\t0.0
+geneA\t1000\t800\t200.25\t30.5
+geneB\t500\t400\t800.75\t69.5
+""".stripIndent()
+
+
+/*
+ * Deliberately reverse the annotated gene order as well.
+ *
+ * The final matrix must follow the GTF annotation and match
+ * abundance values by gene ID rather than by input row.
+ */
+def sampleA = new File(
+    fixtureDir,
+    "sampleA.quant.genes.sf"
+)
+
+sampleA.text = """\
+Name\tLength\tEffectiveLength\tTPM\tNumReads
+1\t1000000\t999800\t0.0\t0.0
+geneB\t500\t400\t900.0\t75.5
+geneA\t1000\t800\t100.0\t25.5
+""".stripIndent()
+
+
+/*
+ * Create the same type of gzipped GTF used by the real
+ * REFERENCE_PREPARATION workflow.
+ */
+def gtf = new File(
+    fixtureDir,
+    "genes.gtf.gz"
+)
+
+
+def gtfContent = """\
+##gtf-version 3
+1\ttest\tgene\t1\t1000\t.\t+\t.\tgene_id "geneA"; gene_name "Gene A";
+1\ttest\ttranscript\t1\t1000\t.\t+\t.\tgene_id "geneA"; transcript_id "txA";
+1\ttest\texon\t1\t500\t.\t+\t.\tgene_id "geneA"; transcript_id "txA";
+1\ttest\tgene\t2000\t3000\t.\t+\t.\tgene_id "geneB"; gene_name "Gene B";
+1\ttest\ttranscript\t2000\t3000\t.\t+\t.\tgene_id "geneB"; transcript_id "txB";
+""".stripIndent()
+
+
+def gzipOutput =
+    new java.util.zip.GZIPOutputStream(
+        new java.io.FileOutputStream(
+            gtf
+        )
+    )
+
+try {
+
+    gzipOutput.write(
+        gtfContent.getBytes(
+            "UTF-8"
+        )
+    )
+
+}
+finally {
+
+    gzipOutput.close()
+}
+
+
+nextflow_process {
+
+    name "Test GENE_ABUNDANCE integration"
+    tag "integration"
+
+    script "../modules/local/gene_abundance/main.nf"
+    process "GENE_ABUNDANCE"
+
+
+    test("Should aggregate annotated genes and exclude genomic decoys") {
+
+        when {
+            process {
+                """
+                input[0] = Channel.value(
+                    [
+                        file(
+                            '${sampleB.canonicalPath}',
+                            checkIfExists: true
+                        ),
+                        file(
+                            '${sampleA.canonicalPath}',
+                            checkIfExists: true
+                        )
+                    ]
+                )
+
+                input[1] = Channel.value(
+                    file(
+                        '${gtf.canonicalPath}',
+                        checkIfExists: true
+                    )
+                )
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.exitStatus == 0
+
+
+            with(process.out.counts) {
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                def lines =
+                    output.readLines()
+
+
+                /*
+                 * Sample columns are deterministic.
+                 */
+                assert lines[0] ==
+                    'gene_id\tsampleA\tsampleB'
+
+
+                /*
+                 * GTF gene order is preserved.
+                 */
+                assert lines[1] ==
+                    'geneA\t25.5\t30.5'
+
+                assert lines[2] ==
+                    'geneB\t75.5\t69.5'
+
+
+                /*
+                 * Chromosome decoys must never enter a gene matrix.
+                 */
+                assert !lines.any {
+                    it.startsWith(
+                        '1\t'
+                    )
+                }
+
+                assert !lines.any {
+                    it.startsWith(
+                        '2\t'
+                    )
+                }
+
+                assert lines.size() == 3
+            }
+
+
+            with(process.out.abundance) {
+
+                def output = path(
+                    get(0)
+                ).toFile()
+
+                def lines =
+                    output.readLines()
+
+
+                assert lines[0] ==
+                    'gene_id\tsampleA\tsampleB'
+
+                assert lines[1] ==
+                    'geneA\t100.0\t200.25'
+
+                assert lines[2] ==
+                    'geneB\t900.0\t800.75'
+
+
+                assert !lines.any {
+                    it.startsWith(
+                        '1\t'
+                    )
+                }
+
+                assert !lines.any {
+                    it.startsWith(
+                        '2\t'
+                    )
+                }
+
+                assert lines.size() == 3
+            }
+        }
+    }
+}

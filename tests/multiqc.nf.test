@@ -7,7 +7,7 @@
  *   - no network access is required
  *
  * Contract:
- *   input  = collection of QC files
+ *   input  = collection of QC files + MultiQC configuration
  *   output = MultiQC HTML report, data directory, optional plots,
  *            and versions.yml
  */
@@ -19,6 +19,7 @@ def fixtureDir = new File(
     ".nf-test/generated-multiqc"
 )
 
+fixtureDir.deleteDir()
 fixtureDir.mkdirs()
 
 
@@ -53,6 +54,12 @@ def qcFile2 = makeQcFile(
 )
 
 
+def multiqcConfig = new File(
+    rootDir,
+    "assets/multiqc_config.yml"
+).canonicalPath
+
+
 nextflow_process {
 
     name "Test MULTIQC"
@@ -81,6 +88,13 @@ nextflow_process {
                         )
                     ]
                 )
+
+                input[1] = Channel.value(
+                    file(
+                        '${multiqcConfig}',
+                        checkIfExists: true
+                    )
+                )
                 """
             }
         }
@@ -90,19 +104,28 @@ nextflow_process {
             assert process.exitStatus == 0
             assert process.trace.tasks().size() == 1
 
+
             with(process.out.report) {
+
                 assert size() == 1
 
-                def report = path(get(0)).toFile()
+                def report = path(
+                    get(0)
+                ).toFile()
 
                 assert report.exists()
-                assert report.name == 'multiqc_report.html'
+                assert report.name ==
+                    'multiqc_report.html'
             }
 
+
             with(process.out.data) {
+
                 assert size() == 1
 
-                def dataDir = path(get(0)).toFile()
+                def dataDir = path(
+                    get(0)
+                ).toFile()
 
                 assert dataDir.isDirectory()
 
@@ -112,19 +135,29 @@ nextflow_process {
                 ).exists()
             }
 
+
             with(process.out.versions) {
+
                 assert size() == 1
 
-                def versions = path(get(0)).toFile()
+                def versions = path(
+                    get(0)
+                ).toFile()
 
                 assert versions.exists()
 
                 assert versions.readLines().any {
-                    it.contains('multiqc: "1.35"')
+                    it.contains(
+                        'multiqc: "1.35"'
+                    )
                 }
             }
 
-            // multiqc_plots is optional and is not produced by the stub.
+
+            /*
+             * multiqc_plots is optional and is not produced
+             * by the stub.
+             */
             assert process.out.plots.size() == 0
         }
     }
