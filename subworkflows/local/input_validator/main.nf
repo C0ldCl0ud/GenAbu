@@ -104,7 +104,7 @@ workflow INPUT_VALIDATOR {
             def resolved_sheet =file(samplesheet)
             def content = resolved_sheet.text
 
-            if (content.contains('$projectDir')) {
+            if (content.contains('${projectDir}')) {
                 resolved_sheet = java.nio.file.Files.createTempFile(
                     'genabu_samplesheet_', '.csv'
                 )
@@ -115,7 +115,7 @@ workflow INPUT_VALIDATOR {
                 )
             }
             samplesheetToList(
-                samplesheet,
+                resolved_sheet.toString(),
                 "${projectDir}/assets/schema_input.json"
             )
         }
