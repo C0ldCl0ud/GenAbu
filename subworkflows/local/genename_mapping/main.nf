@@ -46,6 +46,11 @@ process GENENAME_MAPPING_PROCESS {
         )
 
 
+    # GTF filename staged by Nextflow.
+
+    gtf_file = "${gtf}"
+
+
     # Build gene_id -> gene_name mapping from the GTF.
 
     gene_name_mapping = {}
@@ -59,7 +64,7 @@ process GENENAME_MAPPING_PROCESS {
     )
 
 
-    with open_text("${gtf}") as handle:
+    with open_text(gtf_file) as handle:
 
         for line_number, line in enumerate(
             handle,
@@ -73,7 +78,7 @@ process GENENAME_MAPPING_PROCESS {
 
             if len(fields) != 9:
                 raise RuntimeError(
-                    f"{gtf}:{line_number}: "
+                    f"{gtf_file}:{line_number}: "
                     "expected 9 GTF columns"
                 )
 
@@ -99,7 +104,7 @@ process GENENAME_MAPPING_PROCESS {
 
             if gene_name_match is None:
                 raise RuntimeError(
-                    f"{gtf}:{line_number}: "
+                    f"{gtf_file}:{line_number}: "
                     f"gene '{gene_id}' is missing gene_name"
                 )
 
@@ -180,12 +185,12 @@ process GENENAME_MAPPING_PROCESS {
 
 
     add_gene_names(
-        "${gene_counts}",
+        "gene_counts.tsv",
         "gene_counts_mapped.tsv"
     )
 
     add_gene_names(
-        "${gene_abundance}",
+        "gene_abundance.tsv",
         "gene_abundance_mapped.tsv"
     )
     PY
@@ -194,6 +199,7 @@ process GENENAME_MAPPING_PROCESS {
     test -s gene_abundance_mapped.tsv
     """
 }
+
 
 workflow GENENAME_MAPPING {
 
