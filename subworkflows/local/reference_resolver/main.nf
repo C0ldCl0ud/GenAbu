@@ -178,7 +178,7 @@ workflow REFERENCE_RESOLVER {
                 cached,
                 genome_file.canonicalPath,
                 gtf_file.canonicalPath,
-                manifest_file.canonicalPath
+                manifest_file.canonicalPath,
                 gene_name_file.canonicalPath
             )
         }
