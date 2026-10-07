@@ -67,43 +67,44 @@ workflow REFERENCE_PREPARATION {
      */
 
     ch_transcript_state = REFERENCE_RESOLVER.out.reference
-        .combine(reference_cache)
-        .map {
+    .combine(reference_cache)
+    .map { reference_tuple, cache_root ->
+
+        def reference = reference_tuple[0]
+        def genome_fasta = reference_tuple[1]
+        def gtf = reference_tuple[2]
+        def manifest = reference_tuple[3]
+        def gene_names = reference_tuple[4]
+
+        def cache_dir = getReferenceCacheDir(
+            cache_root,
+            reference
+        )
+
+        def transcript_file = new File(
+            cache_dir,
+            'transcripts.fa.gz'
+        )
+
+        def cached =
+            transcript_file.isFile() &&
+            transcript_file.length() > 0
+
+        log.info(
+            cached
+                ? "Transcriptome cache hit: ${transcript_file}"
+                : "Transcriptome cache miss: ${transcript_file}"
+        )
+
+        tuple(
             reference,
             genome_fasta,
             gtf,
-            manifest,
-            cache_root ->
-
-            def cache_dir = getReferenceCacheDir(
-                cache_root,
-                reference
-            )
-
-            def transcript_file = new File(
-                cache_dir,
-                'transcripts.fa.gz'
-            )
-
-            def cached =
-                transcript_file.isFile() &&
-                transcript_file.length() > 0
-
-            log.info(
-                cached
-                    ? "Transcriptome cache hit: ${transcript_file}"
-                    : "Transcriptome cache miss: ${transcript_file}"
-            )
-
-            tuple(
-                reference,
-                genome_fasta,
-                gtf,
-                cache_dir.canonicalPath,
-                transcript_file.canonicalPath,
-                cached
-            )
-        }
+            cache_dir.canonicalPath,
+            transcript_file.canonicalPath,
+            cached
+        )
+    }
 
 
     /*
@@ -218,12 +219,12 @@ workflow REFERENCE_PREPARATION {
 
     ch_salmon_state = ch_salmon_base
         .combine(reference_cache)
-        .map {
-            reference_id,
-            reference,
-            transcript_fasta,
-            genome_fasta,
-            cache_root ->
+        .map { salmon_tuple, cache_root ->
+
+            def reference_id = salmon_tuple[0]
+            def reference = salmon_tuple[1]
+            def transcript_fasta = salmon_tuple[2]
+            def genome_fasta = salmon_tuple[3]
 
             def reference_cache_dir =
                 getReferenceCacheDir(
@@ -231,16 +232,6 @@ workflow REFERENCE_PREPARATION {
                     reference
                 )
 
-            /*
-             * IMPORTANT:
-             *
-             * Bump this directory whenever either:
-             *
-             *   Salmon version
-             *   k-mer length
-             *
-             * changes.
-             */
             def salmon_cache_dir = new File(
                 reference_cache_dir,
                 'salmon-2.7.0-k31'

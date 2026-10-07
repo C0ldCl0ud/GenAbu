@@ -290,6 +290,9 @@ workflow REFERENCE_RESOLVER {
 
     ch_gene_names = ch_resolved.map {
         reference,
+        genome_fasta,
+        gtf,
+        manifest,
         gene_names ->
 
         tuple(
