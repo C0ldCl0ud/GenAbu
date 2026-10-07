@@ -76,12 +76,6 @@ workflow REFERENCE_PREPARATION {
             gene_names,
             cache_root ->
 
-            def reference = reference_tuple[0]
-            def genome_fasta = reference_tuple[1]
-            def gtf = reference_tuple[2]
-            def manifest = reference_tuple[3]
-            def gene_names = reference_tuple[4]
-
             def cache_dir = getReferenceCacheDir(
                 cache_root,
                 reference
@@ -231,11 +225,6 @@ workflow REFERENCE_PREPARATION {
             transcript_fasta,
             genome_fasta,
             cache_root ->
-
-            def reference_id = salmon_tuple[0]
-            def reference = salmon_tuple[1]
-            def transcript_fasta = salmon_tuple[2]
-            def genome_fasta = salmon_tuple[3]
 
             def reference_cache_dir =
                 getReferenceCacheDir(
