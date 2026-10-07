@@ -317,6 +317,6 @@ workflow REFERENCE_RESOLVER {
     reference     = ch_resolved
     genome_fasta  = ch_genome
     gtf           = ch_gtf
-    gene_names     = ch_gene_names
+    gene_names    = ch_gene_names
     manifest      = ch_manifest
 }
