@@ -25,7 +25,7 @@ process REFERENCE_DOWNLOAD {
           path("genome.fa.gz"),
           path("genes.gtf.gz"),
           path("reference.yml"),
-          path("gene_name.gene_info.gz"),
+          path("gene_names.gene_info.gz"),
           emit: reference_files
 
     path "versions.yml",
