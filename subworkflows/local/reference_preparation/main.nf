@@ -68,7 +68,13 @@ workflow REFERENCE_PREPARATION {
 
     ch_transcript_state = REFERENCE_RESOLVER.out.reference
         .combine(reference_cache)
-        .map { reference_tuple, cache_root ->
+        .map {
+            reference,
+            genome_fasta,
+            gtf,
+            manifest,
+            gene_names,
+            cache_root ->
 
             def reference = reference_tuple[0]
             def genome_fasta = reference_tuple[1]
@@ -219,7 +225,12 @@ workflow REFERENCE_PREPARATION {
 
     ch_salmon_state = ch_salmon_base
         .combine(reference_cache)
-        .map { salmon_tuple, cache_root ->
+        .map {
+            reference_id,
+            reference,
+            transcript_fasta,
+            genome_fasta,
+            cache_root ->
 
             def reference_id = salmon_tuple[0]
             def reference = salmon_tuple[1]
