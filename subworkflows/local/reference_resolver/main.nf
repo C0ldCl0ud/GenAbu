@@ -145,7 +145,7 @@ workflow REFERENCE_RESOLVER {
                 'reference.yml'
             )
 
-            def gene_name_file = new File(
+            def gene_names_file = new File(
                 cache_dir,
                 "gene_names.gene_info.gz"
             )
