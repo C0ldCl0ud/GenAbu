@@ -212,7 +212,7 @@ workflow REFERENCE_RESOLVER {
                 reference,
                 file(genome_path),
                 file(gtf_path),
-                file(manifest_path)
+                file(manifest_path),
                 file(gene_name_path)
             )
         }
