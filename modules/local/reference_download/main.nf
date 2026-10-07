@@ -14,8 +14,8 @@ process REFERENCE_DOWNLOAD {
     publishDir {
         "${reference_cache}/${reference.source.toLowerCase()}/release-${reference.release}/${reference.id}-${reference.assembly}"
     },
-        mode: 'copy',
-        overwrite: true
+    mode: 'copy',
+    overwrite: true
 
     input:
     tuple val(reference), val(reference_cache)
@@ -25,7 +25,7 @@ process REFERENCE_DOWNLOAD {
           path("genome.fa.gz"),
           path("genes.gtf.gz"),
           path("reference.yml"),
-          path("gene_name.gene_info.gz")
+          path("gene_name.gene_info.gz"),
           emit: reference_files
 
     path "versions.yml",
