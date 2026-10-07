@@ -4,6 +4,7 @@ include { PAPER_ACCESSIONS }      from './subworkflows/local/paper_accessions/ma
 include { SRA_INPUT }             from './subworkflows/local/sra_input/main'
 include { REFERENCE_PREPARATION } from './subworkflows/local/reference_preparation/main'
 include { QUANTIFICATION }        from './subworkflows/local/quantification/main'
+include { GENENAME_MAPPING }      from './subworkflows/local/genename_mapping/main'
 
 include { FALCO }                 from './modules/local/falco/main'
 include { FALCO_TRIM }            from './modules/local/falco_trim/main'
@@ -149,6 +150,12 @@ workflow {
 
             GENE_ABUNDANCE(
                 ch_gene_quant_files,
+                ch_abundance_gtf
+            )
+
+            GENENAME_MAPPING(
+                GENE_ABUNDANCE.out.counts,
+                GENE_ABUNDANCE.out.abundance,
                 ch_abundance_gtf
             )
 
