@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1167" height="514" viewBox="0 0 1167 514" style="color-scheme: light dark">
+<defs>
+</defs>
+<metadata id="diagram-manifest" data-schema-version="1.0"><![CDATA[{"groups":[{"color":"#a8cff0","id":"fastq","label":"FASTQ input"},{"color":"#0570b0","id":"sra","label":"SRA input"},{"color":"#e69f00","id":"paper","label":"Paper accession"},{"color":"#086008","id":"with_sra","label":"SRA-derived reads"},{"color":"#0ee20e","id":"main","label":"Analysis workflow"}],"height":514,"match":{"flags":"i","target":"fqProcessName","type":"regex"},"nodes":[{"groups":["fastq"],"h":10.0,"id":"fastq_input","label":"fastq_input","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":80.0,"y":116.8},{"groups":["sra"],"h":10.0,"id":"sra_input","label":"sra_input","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":80.0,"y":179.2},{"groups":["paper"],"h":10.0,"id":"paper_input","label":"paper_input","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":80.0,"y":241.6},{"groups":["fastq","sra"],"h":14.0,"id":"validator","label":"Input Validator","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":193.0,"y":118.8},{"groups":["paper"],"h":10.0,"id":"paper_accessions","label":"Paper Accessions","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":193.0,"y":241.6},{"groups":["paper","sra","with_sra"],"h":18.0,"id":"sra","label":"SRA Input","patterns":[],"r":5.0,"region":"input","rx":5.0,"w":10.0,"x":306.0,"y":183.2},{"groups":["fastq","main","with_sra"],"h":18.0,"id":"falco","label":"Falco","patterns":[],"r":5.0,"region":"preprocessing","rx":5.0,"w":10.0,"x":492.0,"y":120.8},{"groups":["main"],"h":10.0,"id":"cutadapt","label":"Cutadapt","patterns":[],"r":5.0,"region":"preprocessing","rx":5.0,"w":10.0,"x":552.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"falco_trim","label":"Falco Trim","patterns":[],"r":5.0,"region":"preprocessing","rx":5.0,"w":10.0,"x":612.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"salmon","label":"Salmon","patterns":[],"r":5.0,"region":"quantification","rx":5.0,"w":10.0,"x":762.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"gene_abundance","label":"Gene Abundance","patterns":[],"r":5.0,"region":"quantification","rx":5.0,"w":10.0,"x":822.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"multiqc","label":"MultiQC","patterns":[],"r":5.0,"region":"reporting","rx":5.0,"w":10.0,"x":989.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"multiqc_report","label":"multiqc_report","patterns":[],"r":5.0,"region":"reporting","rx":5.0,"w":10.0,"x":1049.0,"y":124.8},{"groups":["main"],"h":10.0,"id":"genabu_table","label":"genabu_table","patterns":[],"r":5.0,"region":"reporting_genabu","rx":5.0,"w":10.0,"x":1019.0,"y":266.8}],"regions":[{"id":"input","label":"Input"},{"id":"preprocessing","label":"Pre-processing"},{"id":"quantification","label":"Quantification"},{"id":"reporting","label":"Reporting quality control"},{"id":"reporting_genabu","label":"Reporting gene abundance"}],"title":"GenAbu RNA-seq Analysis Pipeline","version":"1.0","width":1167}]]></metadata>
+<style>.nf-metro-bg { fill: var(--nfm-map-bg, light-dark(#f5f5f5, #2b2b2b)); }
+.nf-metro-title { fill: var(--nfm-map-title-color, light-dark(#111111, #ffffff)); }
+.nf-metro-station-label { fill: var(--nfm-map-label-color, light-dark(#333333, #e0e0e0)); }
+.nf-metro-section-box { fill: var(--nfm-map-section-fill, light-dark(#ededed, #373737)); stroke: var(--nfm-map-section-stroke, light-dark(#e6e6e6, #595959)); }
+.nf-metro-section-label { fill: var(--nfm-map-section-label-color, light-dark(#666666, #c8c8c8)); }
+.nf-metro-group-label { fill: var(--nfm-map-section-label-color, light-dark(#666666, #c8c8c8)); }
+.nf-metro-group-underline { stroke: var(--nfm-map-section-label-color, light-dark(#666666, #c8c8c8)); }
+.nf-metro-legend-bg { fill: var(--nfm-map-legend-bg, light-dark(rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0.3))); }
+.nf-metro-legend-text { fill: var(--nfm-map-legend-text-color, light-dark(#333333, #e0e0e0)); }
+.nf-metro-marker-stroke { stroke: var(--nfm-map-marker-stroke, light-dark(#333333, #f0f0f0)); }
+.nf-metro-label-halo { fill: var(--nfm-map-bg, light-dark(#f5f5f5, #2b2b2b)); stroke: var(--nfm-map-bg, light-dark(#f5f5f5, #2b2b2b)); }</style>
+<rect x="0" y="0" width="1167" height="514" fill="#2b2b2b" class="nf-metro-bg" />
+<text x="60.0" y="30.0" font-size="24.0" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" class="nf-metro-title">GenAbu RNA-seq Analysis Pipeline</text>
+<rect x="22.0" y="66.8" width="370.0" height="216.8" rx="8" ry="8" fill="#373737" stroke="#595959" stroke-width="1.0" class="nf-metro-section-box" data-section-id="input" data-section-lines="fastq,paper,sra,with_sra" />
+<circle cx="33.0" cy="51.8" r="11" fill="#333333" class="nf-metro-section-num-circle" data-section-id="input" />
+<text x="33.0" y="51.8" font-size="12" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em" data-section-id="input">1</text>
+<text x="49.0" y="51.8" font-size="16.0" fill="#c8c8c8" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" dy="0.3em" class="nf-metro-section-label" data-section-id="input">Input</text>
+<rect x="442.0" y="66.8" width="220.0" height="100.0" rx="8" ry="8" fill="#373737" stroke="#595959" stroke-width="1.0" class="nf-metro-section-box" data-section-id="preprocessing" data-section-lines="fastq,main,with_sra" />
+<circle cx="453.0" cy="51.8" r="11" fill="#333333" class="nf-metro-section-num-circle" data-section-id="preprocessing" />
+<text x="453.0" y="51.8" font-size="12" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em" data-section-id="preprocessing">2</text>
+<text x="469.0" y="51.8" font-size="16.0" fill="#c8c8c8" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" dy="0.3em" class="nf-metro-section-label" data-section-id="preprocessing">Pre-processing</text>
+<rect x="712.0" y="66.8" width="177.0" height="100.0" rx="8" ry="8" fill="#373737" stroke="#595959" stroke-width="1.0" class="nf-metro-section-box" data-section-id="quantification" data-section-lines="main" />
+<circle cx="723.0" cy="51.8" r="11" fill="#333333" class="nf-metro-section-num-circle" data-section-id="quantification" />
+<text x="723.0" y="51.8" font-size="12" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em" data-section-id="quantification">3</text>
+<text x="739.0" y="51.8" font-size="16.0" fill="#c8c8c8" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" dy="0.3em" class="nf-metro-section-label" data-section-id="quantification">Quantification</text>
+<rect x="939.0" y="66.8" width="168.0" height="100.0" rx="8" ry="8" fill="#373737" stroke="#595959" stroke-width="1.0" class="nf-metro-section-box" data-section-id="reporting" data-section-lines="main" />
+<circle cx="950.0" cy="51.8" r="11" fill="#333333" class="nf-metro-section-num-circle" data-section-id="reporting" />
+<text x="950.0" y="51.8" font-size="12" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em" data-section-id="reporting">4</text>
+<text x="966.0" y="51.8" font-size="16.0" fill="#c8c8c8" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" dy="0.3em" class="nf-metro-section-label" data-section-id="reporting">Reporting quality control</text>
+<rect x="969.0" y="216.8" width="108.0" height="100.0" rx="8" ry="8" fill="#373737" stroke="#595959" stroke-width="1.0" class="nf-metro-section-box" data-section-id="reporting_genabu" data-section-lines="main" />
+<circle cx="980.0" cy="201.8" r="11" fill="#333333" class="nf-metro-section-num-circle" data-section-id="reporting_genabu" />
+<text x="980.0" y="201.8" font-size="12" fill="#ffffff" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em" data-section-id="reporting_genabu">5</text>
+<text x="996.0" y="201.8" font-size="16.0" fill="#c8c8c8" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" dy="0.3em" class="nf-metro-section-label" data-section-id="reporting_genabu">Reporting gene abundance</text>
+<path d="M492.0,124.8 L552.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M552.0,124.8 L612.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M762.0,124.8 L822.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M989.0,124.8 L1049.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M612.0,124.8 L662.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M712.0,124.8 L762.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M822.0,124.8 L889.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M939.0,124.8 L989.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M969.0,266.8 L1019.0,266.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M662.0,124.8 L712.0,124.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M889.0,124.8 L899.0,132.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" class="metro-line-main" data-line-id="main" />
+<path d="M899.0,132.8 L915.3431457505076,132.8 Q921.0,132.8,925.0,128.8 L925.0,128.8 Q929.0,124.8,934.6568542494924,124.8 L939.0,124.8" stroke="#0ee20e" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-main" data-line-id="main" />
+<path d="M899.0,132.8 L904.0,132.8 Q914.0,132.8,914.0,142.8 L914.0,256.8 Q914.0,266.8,924.0,266.8 L969.0,266.8" stroke="#0ee20e" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-main" data-line-id="main" />
+<path d="M306.0,179.2 L337.0,179.2 Q347.0,179.2,351.5693498139703,170.30499902880445 L372.4306501860297,129.69500097119553 Q377.0,120.8,387.0,120.8 L392.0,120.8" stroke="#086008" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-with_sra" data-line-id="with_sra" />
+<path d="M442.0,120.8 L492.0,120.8" stroke="#086008" stroke-width="3.0" stroke-linecap="round" class="metro-line-with_sra" data-line-id="with_sra" />
+<path d="M392.0,120.8 L442.0,120.8" stroke="#086008" stroke-width="3.0" stroke-linecap="round" class="metro-line-with_sra" data-line-id="with_sra" />
+<path d="M80.0,241.6 L193.0,241.6" stroke="#e69f00" stroke-width="3.0" stroke-linecap="round" class="metro-line-paper" data-line-id="paper" />
+<path d="M193.0,241.6 L225.5,241.6 Q235.5,241.6,240.06934981397032,232.70499902880445 L260.9306501860297,192.09500097119553 Q265.5,183.2,275.5,183.2 L306.0,183.2" stroke="#e69f00" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-paper" data-line-id="paper" />
+<path d="M80.0,179.2 L85.5,179.2 Q95.5,179.2,100.0693498139703,170.30499902880445 L120.9306501860297,129.69500097119553 Q125.5,120.8,135.5,120.8 L193.0,120.8" stroke="#0570b0" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-sra" data-line-id="sra" />
+<path d="M193.0,120.8 L193.0,120.8 Q203.0,120.8,207.11733807218926,129.9130415997789 L228.88266192781074,178.08695840022108 Q233.0,187.2,243.0,187.2 L306.0,187.2" stroke="#0570b0" stroke-width="3.0" fill="none" stroke-linecap="round" stroke-linejoin="round" class="metro-line-sra" data-line-id="sra" />
+<path d="M80.0,116.8 L193.0,116.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" class="metro-line-fastq" data-line-id="fastq" />
+<path d="M442.0,116.8 L492.0,116.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" class="metro-line-fastq" data-line-id="fastq" />
+<path d="M392.0,116.8 L442.0,116.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" class="metro-line-fastq" data-line-id="fastq" />
+<path d="M193.0,116.8 L306.0,116.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" class="metro-line-fastq" data-line-id="fastq" />
+<path d="M306.0,116.8 L392.0,116.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" class="metro-line-fastq" data-line-id="fastq" />
+<g class="nf-metro-station-group" data-node-id="fastq_input" data-node-cx="80.0" data-node-cy="116.8" data-node-r="5.0" data-node-groups="fastq" data-node-region="input" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="75.0" y="111.8" width="10.0" height="10.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="fastq_input" data-station-lines="fastq" data-station-label="fastq_input" data-section-id="input" data-section-name="Input" />
+<g data-station-id="fastq_input">
+<path d="M38.8,96.6 L56.8,96.6 L64.8,104.6 L64.8,126.6 Q64.8,128.6,62.8,128.6 L38.8,128.6 Q36.8,128.6,36.8,126.6 L36.8,98.6 Q36.8,96.6,38.8,96.6 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M56.8,96.6 L56.8,104.6 L64.8,104.6 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M56.8,96.6 L56.8,104.6 L64.8,104.6" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<path d="M43.0,100.8 L61.0,100.8 L69.0,108.8 L69.0,130.8 Q69.0,132.8,67.0,132.8 L43.0,132.8 Q41.0,132.8,41.0,130.8 L41.0,102.8 Q41.0,100.8,43.0,100.8 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M61.0,100.8 L61.0,108.8 L69.0,108.8 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M61.0,100.8 L61.0,108.8 L69.0,108.8" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<text x="55.0" y="118.0" font-size="7.5" fill="#000000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em">FASTQ</text>
+<text x="55.0" y="136.8" font-size="7.8" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" class="nf-metro-station-label">FASTQ input</text>
+</g>
+</g>
+<g class="nf-metro-station-group" data-node-id="sra_input" data-node-cx="80.0" data-node-cy="179.2" data-node-r="5.0" data-node-groups="sra" data-node-region="input" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="75.0" y="174.2" width="10.0" height="10.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="sra_input" data-station-lines="sra" data-station-label="sra_input" data-section-id="input" data-section-name="Input" />
+<g data-station-id="sra_input">
+<path d="M38.8,159.0 L56.8,159.0 L64.8,167.0 L64.8,189.0 Q64.8,191.0,62.8,191.0 L38.8,191.0 Q36.8,191.0,36.8,189.0 L36.8,161.0 Q36.8,159.0,38.8,159.0 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M56.8,159.0 L56.8,167.0 L64.8,167.0 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M56.8,159.0 L56.8,167.0 L64.8,167.0" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<path d="M43.0,163.2 L61.0,163.2 L69.0,171.2 L69.0,193.2 Q69.0,195.2,67.0,195.2 L43.0,195.2 Q41.0,195.2,41.0,193.2 L41.0,165.2 Q41.0,163.2,43.0,163.2 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M61.0,163.2 L61.0,171.2 L69.0,171.2 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M61.0,163.2 L61.0,171.2 L69.0,171.2" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<text x="55.0" y="180.39999999999998" font-size="7.5" fill="#000000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em">SRA</text>
+<text x="55.0" y="199.2" font-size="7.8" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" class="nf-metro-station-label">SRA input</text>
+</g>
+</g>
+<g class="nf-metro-station-group" data-node-id="paper_input" data-node-cx="80.0" data-node-cy="241.6" data-node-r="5.0" data-node-groups="paper" data-node-region="input" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="75.0" y="236.6" width="10.0" height="10.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="paper_input" data-station-lines="paper" data-station-label="paper_input" data-section-id="input" data-section-name="Input" />
+<g data-station-id="paper_input">
+<path d="M38.8,221.4 L56.8,221.4 L64.8,229.4 L64.8,251.4 Q64.8,253.4,62.8,253.4 L38.8,253.4 Q36.8,253.4,36.8,251.4 L36.8,223.4 Q36.8,221.4,38.8,221.4 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M56.8,221.4 L56.8,229.4 L64.8,229.4 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M56.8,221.4 L56.8,229.4 L64.8,229.4" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<path d="M43.0,225.6 L61.0,225.6 L69.0,233.6 L69.0,255.60000000000002 Q69.0,257.6,67.0,257.6 L43.0,257.6 Q41.0,257.6,41.0,255.60000000000002 L41.0,227.6 Q41.0,225.6,43.0,225.6 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M61.0,225.6 L61.0,233.6 L69.0,233.6 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M61.0,225.6 L61.0,233.6 L69.0,233.6" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<text x="55.0" y="242.79999999999998" font-size="7.5" fill="#000000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em">Paper</text>
+<text x="56.175000000000004" y="261.6" font-size="7.8" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" class="nf-metro-station-label">Paper accession</text>
+</g>
+</g>
+<g class="nf-metro-station-group" data-node-id="validator" data-node-cx="193.0" data-node-cy="118.8" data-node-r="5.0" data-node-groups="fastq,sra" data-node-region="input" data-node-w="10.0" data-node-h="14.0" data-node-rx="5.0">
+<rect x="188.0" y="111.8" width="10.0" height="14.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="validator" data-station-lines="fastq,sra" data-station-label="Input Validator" data-section-id="input" data-section-name="Input" />
+</g>
+<g class="nf-metro-station-group" data-node-id="paper_accessions" data-node-cx="193.0" data-node-cy="241.6" data-node-r="5.0" data-node-groups="paper" data-node-region="input" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="188.0" y="236.6" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="paper_accessions" data-station-lines="paper" data-station-label="Paper Accessions" data-section-id="input" data-section-name="Input" />
+</g>
+<g class="nf-metro-station-group" data-node-id="sra" data-node-cx="306.0" data-node-cy="183.2" data-node-r="5.0" data-node-groups="paper,sra,with_sra" data-node-region="input" data-node-w="10.0" data-node-h="18.0" data-node-rx="5.0">
+<rect x="301.0" y="174.2" width="10.0" height="18.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="sra" data-station-lines="paper,sra,with_sra" data-station-label="SRA Input" data-section-id="input" data-section-name="Input" />
+</g>
+<g class="nf-metro-station-group" data-node-id="falco" data-node-cx="492.0" data-node-cy="120.8" data-node-r="5.0" data-node-groups="fastq,main,with_sra" data-node-region="preprocessing" data-node-w="10.0" data-node-h="18.0" data-node-rx="5.0">
+<rect x="487.0" y="111.8" width="10.0" height="18.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="falco" data-station-lines="fastq,main,with_sra" data-station-label="Falco" data-section-id="preprocessing" data-section-name="Pre-processing" />
+</g>
+<g class="nf-metro-station-group" data-node-id="cutadapt" data-node-cx="552.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="preprocessing" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="547.0" y="119.8" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="cutadapt" data-station-lines="main" data-station-label="Cutadapt" data-section-id="preprocessing" data-section-name="Pre-processing" />
+</g>
+<g class="nf-metro-station-group" data-node-id="falco_trim" data-node-cx="612.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="preprocessing" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="607.0" y="119.8" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="falco_trim" data-station-lines="main" data-station-label="Falco Trim" data-section-id="preprocessing" data-section-name="Pre-processing" />
+</g>
+<g class="nf-metro-station-group" data-node-id="salmon" data-node-cx="762.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="quantification" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="757.0" y="119.8" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="salmon" data-station-lines="main" data-station-label="Salmon" data-section-id="quantification" data-section-name="Quantification" />
+</g>
+<g class="nf-metro-station-group" data-node-id="gene_abundance" data-node-cx="822.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="quantification" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="817.0" y="119.8" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="gene_abundance" data-station-lines="main" data-station-label="Gene Abundance" data-section-id="quantification" data-section-name="Quantification" />
+</g>
+<g class="nf-metro-station-group" data-node-id="multiqc" data-node-cx="989.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="reporting" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="984.0" y="119.8" width="10.0" height="10.0" rx="5.0" ry="5.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="multiqc" data-station-lines="main" data-station-label="MultiQC" data-section-id="reporting" data-section-name="Reporting quality control" />
+</g>
+<g class="nf-metro-station-group" data-node-id="multiqc_report" data-node-cx="1049.0" data-node-cy="124.8" data-node-r="5.0" data-node-groups="main" data-node-region="reporting" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="1044.0" y="119.8" width="10.0" height="10.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="multiqc_report" data-station-lines="main" data-station-label="multiqc_report" data-section-id="reporting" data-section-name="Reporting quality control" />
+<g data-station-id="multiqc_report">
+<path d="M1062.0,108.8 L1080.0,108.8 L1088.0,116.8 L1088.0,138.8 Q1088.0,140.8,1086.0,140.8 L1062.0,140.8 Q1060.0,140.8,1060.0,138.8 L1060.0,110.8 Q1060.0,108.8,1062.0,108.8 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M1080.0,108.8 L1080.0,116.8 L1088.0,116.8 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M1080.0,108.8 L1080.0,116.8 L1088.0,116.8" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<text x="1074.0" y="126.0" font-size="5.476190476190476" fill="#000000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em">MultiQC</text>
+<text x="1074.0" y="144.8" font-size="7.8" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" class="nf-metro-station-label">MultiQC report</text>
+</g>
+</g>
+<g class="nf-metro-station-group" data-node-id="genabu_table" data-node-cx="1019.0" data-node-cy="266.8" data-node-r="5.0" data-node-groups="main" data-node-region="reporting_genabu" data-node-w="10.0" data-node-h="10.0" data-node-rx="5.0">
+<rect x="1014.0" y="261.8" width="10.0" height="10.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" class="nf-metro-station" data-station-id="genabu_table" data-station-lines="main" data-station-label="genabu_table" data-section-id="reporting_genabu" data-section-name="Reporting gene abundance" />
+<g data-station-id="genabu_table">
+<path d="M1036.2,246.60000000000002 L1054.2,246.60000000000002 L1062.2,254.60000000000002 L1062.2,276.6 Q1062.2,278.6,1060.2,278.6 L1036.2,278.6 Q1034.2,278.6,1034.2,276.6 L1034.2,248.60000000000002 Q1034.2,246.60000000000002,1036.2,246.60000000000002 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M1054.2,246.60000000000002 L1054.2,254.60000000000002 L1062.2,254.60000000000002 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M1054.2,246.60000000000002 L1054.2,254.60000000000002 L1062.2,254.60000000000002" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<path d="M1032.0,250.8 L1050.0,250.8 L1058.0,258.8 L1058.0,280.8 Q1058.0,282.8,1056.0,282.8 L1032.0,282.8 Q1030.0,282.8,1030.0,280.8 L1030.0,252.8 Q1030.0,250.8,1032.0,250.8 Z" fill="#ffffff" stroke="#333333" stroke-width="1.5" stroke-linejoin="round" />
+<path d="M1050.0,250.8 L1050.0,258.8 L1058.0,258.8 Z" fill="#333333" opacity="0.15" stroke="none" />
+<path d="M1050.0,250.8 L1050.0,258.8 L1058.0,258.8" fill="none" stroke="#333333" stroke-width="0.8999999999999999" />
+<text x="1044.0" y="268.0" font-size="7.5" fill="#000000" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dy="0.3em">csv</text>
+<text x="1044.0" y="286.8" font-size="7.8" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" class="nf-metro-station-label">Gene abundance</text>
+</g>
+</g>
+<text x="492.0" y="135.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">Falco</text>
+<text x="492.0" y="135.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="falco" class="nf-metro-station-label">Falco</text>
+<text x="762.0" y="135.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">Salmon</text>
+<text x="762.0" y="135.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="salmon" class="nf-metro-station-label">Salmon</text>
+<text x="989.0" y="135.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">MultiQC</text>
+<text x="989.0" y="135.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="multiqc" class="nf-metro-station-label">MultiQC</text>
+<text x="193.0" y="102.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="auto">Input Validator</text>
+<text x="193.0" y="102.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="auto" data-station-id="validator" class="nf-metro-station-label">Input Validator</text>
+<text x="193.0" y="252.6" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">Paper Accessions</text>
+<text x="193.0" y="252.6" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="paper_accessions" class="nf-metro-station-label">Paper Accessions</text>
+<text x="552.0" y="110.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="auto">Cutadapt</text>
+<text x="552.0" y="110.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="auto" data-station-id="cutadapt" class="nf-metro-station-label">Cutadapt</text>
+<text x="822.0" y="110.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="auto">Gene Abundance</text>
+<text x="822.0" y="110.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="auto" data-station-id="gene_abundance" class="nf-metro-station-label">Gene Abundance</text>
+<text x="306.0" y="198.2" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">SRA Input</text>
+<text x="306.0" y="198.2" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="sra" class="nf-metro-station-label">SRA Input</text>
+<text x="612.0" y="135.8" font-size="13.0" fill="#2b2b2b" stroke="#2b2b2b" stroke-width="3.0" stroke-linejoin="round" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" aria-hidden="true" class="nf-metro-label-halo" text-anchor="middle" dominant-baseline="hanging">Falco Trim</text>
+<text x="612.0" y="135.8" font-size="13.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="hanging" data-station-id="falco_trim" class="nf-metro-station-label">Falco Trim</text>
+<rect x="22.0" y="346.8" width="190.9" height="144.0" rx="6" ry="6" fill="rgba(0, 0, 0, 0.3)" class="nf-metro-legend-bg" />
+<path d="M34.0,370.8 L58.0,370.8" stroke="#a8cff0" stroke-width="3.0" stroke-linecap="round" />
+<text x="70.0" y="370.8" font-size="14.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" dy="0.3em" class="nf-metro-legend-text">FASTQ input</text>
+<path d="M34.0,394.8 L58.0,394.8" stroke="#0570b0" stroke-width="3.0" stroke-linecap="round" />
+<text x="70.0" y="394.8" font-size="14.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" dy="0.3em" class="nf-metro-legend-text">SRA input</text>
+<path d="M34.0,418.8 L58.0,418.8" stroke="#e69f00" stroke-width="3.0" stroke-linecap="round" />
+<text x="70.0" y="418.8" font-size="14.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" dy="0.3em" class="nf-metro-legend-text">Paper accession</text>
+<path d="M34.0,442.8 L58.0,442.8" stroke="#086008" stroke-width="3.0" stroke-linecap="round" />
+<text x="70.0" y="442.8" font-size="14.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" dy="0.3em" class="nf-metro-legend-text">SRA-derived reads</text>
+<path d="M34.0,466.8 L58.0,466.8" stroke="#0ee20e" stroke-width="3.0" stroke-linecap="round" />
+<text x="70.0" y="466.8" font-size="14.0" fill="#e0e0e0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" dy="0.3em" class="nf-metro-legend-text">Analysis workflow</text>
+<text x="1137.0" y="506.0" font-size="8" fill="rgba(150, 150, 150, 0.6)" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="end">created with nf-metro v2.1.0</text>
+</svg>
