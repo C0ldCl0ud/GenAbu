@@ -147,7 +147,7 @@ workflow REFERENCE_RESOLVER {
 
             def gene_name_file = new File(
                 cache_dir,
-                "gene_names.gene_info.gz"
+                "gene_name.gene_info.gz"
             )
 
             def cached =
@@ -288,11 +288,11 @@ workflow REFERENCE_RESOLVER {
 
     ch_gene_names = ch_resolved.map {
         reference,
-        gene_names ->
+        gene_name ->
 
         tuple(
             reference,
-            gene_names
+            gene_name
         )
     }
 
@@ -314,6 +314,6 @@ workflow REFERENCE_RESOLVER {
     reference     = ch_resolved
     genome_fasta  = ch_genome
     gtf           = ch_gtf
-    gene_names    = ch_gene_names
+    gene_name    = ch_gene_name
     manifest      = ch_manifest
 }
