@@ -42,6 +42,13 @@
       "gtf_url": {
         "type": "string",
         "format": "uri"
+      },
+      "gene_name_url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "gene_name_column": {
+        "type": "string"
       }
     },
     "required": [
@@ -54,7 +61,9 @@
       "release",
       "aliases",
       "genome_url",
-      "gtf_url"
+      "gtf_url",
+      "gene_name_url",
+      "gene_name_column"
     ],
     "additionalProperties": false
   }

@@ -13,6 +13,8 @@
     - grch38.p14
   genome_url: https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
   gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/homo_sapiens/Homo_sapiens.GRCh38.116.gtf.gz
+  gene_name_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
+  gene_name_column: Symbol
 
 - id: mouse
   species: Mus musculus
@@ -28,6 +30,8 @@
     - grcm39
   genome_url: https://ftp.ensembl.org/pub/release-116/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz
   gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/mus_musculus/Mus_musculus.GRCm39.116.gtf.gz
+  gene_name_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Mus_musculus.gene_info.gz
+  gene_name_column: Symbol
 
 - id: yeast
   species: Saccharomyces cerevisiae
@@ -44,3 +48,5 @@
     - r64-1-1
   genome_url: https://ftp.ensembl.org/pub/release-116/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz
   gtf_url: https://ftp.ensembl.org/pub/release-116/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.63.gtf.gz
+  gene_name_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Fungi/Saccharomyces_cerevisiae.gene_info.gz
+  gene_name_column: Symbol

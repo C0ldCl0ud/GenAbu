@@ -79,7 +79,8 @@ def resolveReference(catalog, requestedGenome) {
         release           : row[6],
         aliases           : row[7],
         genome_url        : row[8],
-        gtf_url           : row[9]
+        gtf_url           : row[9],
+        gene_name_url     : row[10]
     ]
 }
 
@@ -144,13 +145,20 @@ workflow REFERENCE_RESOLVER {
                 'reference.yml'
             )
 
+            def gene_name_file = new File(
+                cache_dir,
+                "gene_names.gene_info.gz"
+            )
+
             def cached =
                 genome_file.isFile() &&
                 genome_file.length() > 0 &&
                 gtf_file.isFile() &&
                 gtf_file.length() > 0 &&
                 manifest_file.isFile() &&
-                manifest_file.length() > 0
+                manifest_file.length() > 0 &&
+                gene_name_file.isFile() &&
+                gene_name_file.length() > 0
 
             log.info(
                 "Reference '${requested_genome}' resolved to " +
@@ -171,6 +179,7 @@ workflow REFERENCE_RESOLVER {
                 genome_file.canonicalPath,
                 gtf_file.canonicalPath,
                 manifest_file.canonicalPath
+                gene_name_file.canonicalPath
             )
         }
 
@@ -185,7 +194,8 @@ workflow REFERENCE_RESOLVER {
             cached,
             genome_path,
             gtf_path,
-            manifest_path ->
+            manifest_path,
+            gene_name_path ->
 
             cached
         }
@@ -195,13 +205,15 @@ workflow REFERENCE_RESOLVER {
             cached,
             genome_path,
             gtf_path,
-            manifest_path ->
+            manifest_path,
+            gene_name_path ->
 
             tuple(
                 reference,
                 file(genome_path),
                 file(gtf_path),
                 file(manifest_path)
+                file(gene_name_path)
             )
         }
 
@@ -217,7 +229,8 @@ workflow REFERENCE_RESOLVER {
             cached,
             genome_path,
             gtf_path,
-            manifest_path ->
+            manifest_path,
+            gene_name_path ->
 
             !cached
         }
@@ -227,7 +240,8 @@ workflow REFERENCE_RESOLVER {
             cached,
             genome_path,
             gtf_path,
-            manifest_path ->
+            manifest_path,
+            gene_name_path ->
 
             tuple(
                 reference,
@@ -272,6 +286,16 @@ workflow REFERENCE_RESOLVER {
         )
     }
 
+    ch_gene_names = ch_resolved.map {
+        reference,
+        gene_names ->
+
+        tuple(
+            reference,
+            gene_names
+        )
+    }
+
 
     ch_manifest = ch_resolved.map {
         reference,
@@ -290,5 +314,6 @@ workflow REFERENCE_RESOLVER {
     reference     = ch_resolved
     genome_fasta  = ch_genome
     gtf           = ch_gtf
+    gene_names    = ch_gene_names
     manifest      = ch_manifest
 }

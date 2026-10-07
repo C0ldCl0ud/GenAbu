@@ -11,16 +11,16 @@ process GENENAME_MAPPING_PROCESS {
         pattern: 'gene_*_mapped.tsv'
 
     input:
+    path gene_names
     path gene_counts
     path gene_abundance
-    path gtf
 
     output:
     path "gene_counts_mapped.tsv",
-         emit: counts
+        emit: counts
 
     path "gene_abundance_mapped.tsv",
-         emit: abundance
+        emit: abundance
 
     script:
     """
@@ -46,81 +46,90 @@ process GENENAME_MAPPING_PROCESS {
         )
 
 
-    # GTF filename staged by Nextflow.
+    # NCBI gene_info file staged by Nextflow.
 
-    gtf_file = "${gtf}"
+    gene_names_file = "${gene_names}"
 
 
-    # Build gene_id -> gene_name mapping from the GTF.
+    # Build gene_id -> gene_name mapping.
 
     gene_name_mapping = {}
 
-    gene_id_pattern = re.compile(
-        r'(?:^|;\\s*)gene_id\\s+"([^"]+)"'
-    )
 
-    gene_name_pattern = re.compile(
-        r'(?:^|;\\s*)gene_name\\s+"([^"]+)"'
-    )
+    with open_text(gene_names_file) as handle:
+
+        reader = csv.DictReader(
+            (
+                line
+                for line in handle
+                if not line.startswith("#")
+            ),
+            delimiter="\\t"
+        )
 
 
-    with open_text(gtf_file) as handle:
+        required_columns = {
+            "GeneID",
+            "Symbol",
+            "LocusTag",
+            "dbXrefs"
+        }
 
-        for line_number, line in enumerate(
-            handle,
-            start=1
-        ):
 
-            if not line.strip() or line.startswith("#"):
-                continue
+        missing_columns = (
+            required_columns
+            - set(reader.fieldnames or [])
+        )
 
-            fields = line.rstrip("\\n").split("\\t")
 
-            if len(fields) != 9:
-                raise RuntimeError(
-                    f"{gtf_file}:{line_number}: "
-                    "expected 9 GTF columns"
-                )
-
-            # Only gene records are relevant.
-
-            if fields[2] != "gene":
-                continue
-
-            attributes = fields[8]
-
-            gene_id_match = gene_id_pattern.search(
-                attributes
+        if missing_columns:
+            raise RuntimeError(
+                f"{gene_names_file} is missing required columns: "
+                + ", ".join(sorted(missing_columns))
             )
 
-            if gene_id_match is None:
+
+        for row in reader:
+
+            symbol = row["Symbol"].strip()
+
+            if not symbol:
                 continue
 
-            gene_id = gene_id_match.group(1)
 
-            gene_name_match = gene_name_pattern.search(
-                attributes
+            # Ensembl IDs are stored in dbXrefs.
+            #
+            # Example:
+            # Ensembl:ENSMUSG00000030359
+
+            dbxrefs = row["dbXrefs"]
+
+            ensembl_match = re.search(
+                r'(?:^|\\|)Ensembl:([^|]+)',
+                dbxrefs
             )
 
-            if gene_name_match is None:
-                raise RuntimeError(
-                    f"{gtf_file}:{line_number}: "
-                    f"gene '{gene_id}' is missing gene_name"
-                )
 
-            gene_name = gene_name_match.group(1)
+            if ensembl_match:
 
-            if gene_id in gene_name_mapping:
-                raise RuntimeError(
-                    f"Duplicate gene_id in GTF: {gene_id}"
-                )
+                gene_id = ensembl_match.group(1)
 
-            gene_name_mapping[gene_id] = gene_name
+                gene_name_mapping[gene_id] = symbol
+
+
+            # Yeast systematic IDs are stored as LocusTag.
+
+            locus_tag = row["LocusTag"].strip()
+
+            if locus_tag and locus_tag != "-":
+
+                gene_name_mapping[locus_tag] = symbol
 
 
     if not gene_name_mapping:
         raise RuntimeError(
-            "No gene_id -> gene_name mappings were found in the GTF"
+            "No gene_id -> gene_name mappings were found in "
+            f"{gene_names_file}"
         )
 
 
@@ -148,17 +157,23 @@ process GENENAME_MAPPING_PROCESS {
                 lineterminator="\\n"
             )
 
+
             header = next(reader)
 
+
             if not header or header[0] != "gene_id":
+
                 raise RuntimeError(
-                    f"{input_file} must have 'gene_id' as first column"
+                    f"{input_file} must have 'gene_id' "
+                    "as first column"
                 )
+
 
             # Insert gene_name directly after gene_id.
 
             writer.writerow(
-                ["gene_id", "gene_name"] + header[1:]
+                ["gene_id", "gene_name"]
+                + header[1:]
             )
 
 
@@ -167,13 +182,17 @@ process GENENAME_MAPPING_PROCESS {
                 if not row:
                     continue
 
+
                 gene_id = row[0]
 
+
                 if gene_id not in gene_name_mapping:
+
                     raise RuntimeError(
                         f"Gene ID '{gene_id}' has no gene_name "
-                        "mapping in the GTF"
+                        f"mapping in {gene_names_file}"
                     )
+
 
                 writer.writerow(
                     [
@@ -189,10 +208,12 @@ process GENENAME_MAPPING_PROCESS {
         "gene_counts_mapped.tsv"
     )
 
+
     add_gene_names(
         "gene_abundance.tsv",
         "gene_abundance_mapped.tsv"
     )
+
     PY
 
     test -s gene_counts_mapped.tsv
@@ -204,16 +225,16 @@ process GENENAME_MAPPING_PROCESS {
 workflow GENENAME_MAPPING {
 
     take:
+    gene_names
     gene_counts
     gene_abundance
-    gtf
 
     main:
 
     GENENAME_MAPPING_PROCESS(
+        gene_names,
         gene_counts,
-        gene_abundance,
-        gtf
+        gene_abundance
     )
 
     emit:

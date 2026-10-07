@@ -25,6 +25,7 @@ process REFERENCE_DOWNLOAD {
           path("genome.fa.gz"),
           path("genes.gtf.gz"),
           path("reference.yml"),
+          path("gene_name.gene_info.gz")
           emit: reference_files
 
     path "versions.yml",
@@ -49,9 +50,19 @@ process REFERENCE_DOWNLOAD {
         --retry-connrefused \
         --output-document=genes.gtf.gz \
         "${reference.gtf_url}"
+    
+    wget \
+        --quiet \
+        --show-progress \
+        --tries=5 \
+        --timeout=30 \
+        --retry-connrefused \
+        --output-document=gene_names.gene_info.gz \
+        "${reference.gene_name_url}"
 
     gzip -t genome.fa.gz
     gzip -t genes.gtf.gz
+    gzip -t gene_names.gene_info.gz
 
     cat > reference.yml <<'EOF'
 id: ${reference.id}
@@ -63,6 +74,7 @@ source: ${reference.source}
 release: ${reference.release}
 genome_url: "${reference.genome_url}"
 gtf_url: "${reference.gtf_url}"
+gene_name_url: "${reference.gene_name_url}"
 EOF
 
     printf '"%s":\\n    wget: "%s"\\n' \
@@ -81,6 +93,10 @@ EOF
         | gzip -c \
         > genes.gtf.gz
 
+    #printf 'chr1\\tGenAbu\\tgene\\t1\\t8\\t.\\t+\\t.\\tgene_id "gene1";\\n' \
+    #    | gzip -c \
+    #    > gene_names.gene_info.gz
+
     cat > reference.yml <<'EOF'
 id: ${reference.id}
 species: "${reference.species}"
@@ -91,6 +107,7 @@ source: ${reference.source}
 release: ${reference.release}
 genome_url: "${reference.genome_url}"
 gtf_url: "${reference.gtf_url}"
+gene_name_url: "${reference.gene_name_url}"
 EOF
 
     printf '"%s":\\n    wget: "1.21.4"\\n' \
