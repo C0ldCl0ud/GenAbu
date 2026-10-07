@@ -14,6 +14,7 @@ process GENENAME_MAPPING_PROCESS {
     path gene_names
     path gene_counts
     path gene_abundance
+    
 
     output:
     path "gene_counts_mapped.tsv",
