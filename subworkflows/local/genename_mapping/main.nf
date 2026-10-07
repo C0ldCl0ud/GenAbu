@@ -14,7 +14,7 @@ process GENENAME_MAPPING_PROCESS {
     path gene_names
     path gene_counts
     path gene_abundance
-    
+
 
     output:
     path "gene_counts_mapped.tsv",
@@ -59,13 +59,22 @@ process GENENAME_MAPPING_PROCESS {
 
     with open_text(gene_names_file) as handle:
 
+        def clean_lines(handle):
+
+            for line in handle:
+
+                if line.startswith("#tax_id"):
+
+                    yield line.lstrip("#")
+
+                elif not line.startswith("#"):
+
+                    yield line
+
+
         reader = csv.DictReader(
-            (
-                line
-                for line in handle
-                if not line.startswith("#")
-            ),
-            delimiter="\\t"
+            clean_lines(handle),
+            delimiter="\t"
         )
 
 
