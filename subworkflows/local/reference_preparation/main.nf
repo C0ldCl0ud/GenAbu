@@ -67,44 +67,44 @@ workflow REFERENCE_PREPARATION {
      */
 
     ch_transcript_state = REFERENCE_RESOLVER.out.reference
-    .combine(reference_cache)
-    .map { reference_tuple, cache_root ->
+        .combine(reference_cache)
+        .map { reference_tuple, cache_root ->
 
-        def reference = reference_tuple[0]
-        def genome_fasta = reference_tuple[1]
-        def gtf = reference_tuple[2]
-        def manifest = reference_tuple[3]
-        def gene_names = reference_tuple[4]
+            def reference = reference_tuple[0]
+            def genome_fasta = reference_tuple[1]
+            def gtf = reference_tuple[2]
+            def manifest = reference_tuple[3]
+            def gene_names = reference_tuple[4]
 
-        def cache_dir = getReferenceCacheDir(
-            cache_root,
-            reference
-        )
+            def cache_dir = getReferenceCacheDir(
+                cache_root,
+                reference
+            )
 
-        def transcript_file = new File(
-            cache_dir,
-            'transcripts.fa.gz'
-        )
+            def transcript_file = new File(
+                cache_dir,
+                'transcripts.fa.gz'
+            )
 
-        def cached =
-            transcript_file.isFile() &&
-            transcript_file.length() > 0
+            def cached =
+                transcript_file.isFile() &&
+                transcript_file.length() > 0
 
-        log.info(
-            cached
-                ? "Transcriptome cache hit: ${transcript_file}"
-                : "Transcriptome cache miss: ${transcript_file}"
-        )
+            log.info(
+                cached
+                    ? "Transcriptome cache hit: ${transcript_file}"
+                    : "Transcriptome cache miss: ${transcript_file}"
+            )
 
-        tuple(
-            reference,
-            genome_fasta,
-            gtf,
-            cache_dir.canonicalPath,
-            transcript_file.canonicalPath,
-            cached
-        )
-    }
+            tuple(
+                reference,
+                genome_fasta,
+                gtf,
+                cache_dir.canonicalPath,
+                transcript_file.canonicalPath,
+                cached
+            )
+        }
 
 
     /*
