@@ -84,16 +84,16 @@ process GENENAME_MAPPING_PROCESS {
 
             for line in handle:
 
-                /*
-                 * Keep the NCBI header, but remove its leading '#'.
-                 */
+
+                #  Keep the NCBI header, but remove its leading '#'.
+
                 if line.startswith("#tax_id"):
 
                     yield line[1:]
 
-                /*
-                 * Ignore other comment lines.
-                 */
+
+                #  Ignore other comment lines.
+
                 elif not line.startswith("#"):
 
                     yield line
