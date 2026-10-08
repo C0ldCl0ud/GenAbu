@@ -58,7 +58,7 @@ graph LR
         salmon -->|main| gene_abundance
     end
 
-    subgraph reporting [Reporting quality control]
+    subgraph reporting [Reporting QC]
 
         multiqc[MultiQC]
         multiqc_report[ ]
@@ -67,9 +67,12 @@ graph LR
 
     end
 
-    subgraph reporting_genabu [Reporting gene abundance]
+    subgraph reporting_genabu [Reporting GA]
 
+        gene_name[Name mapping]
         genabu_table[ ]
+
+        gene_name -->|main| genabu_table
 
     end
 
@@ -77,77 +80,4 @@ graph LR
     sra -->|with_sra| falco
     falco_trim -->|main| salmon
     gene_abundance -->|main| multiqc
-    gene_abundance -->|main| genabu_table%%metro title: GenAbu RNA-seq Analysis Pipeline
-%%metro style: nfcore
-
-%%metro line: fastq | FASTQ input | #a8cff0
-%%metro line: sra | SRA input | #0570b0
-%%metro line: paper | Paper accession | #e69f00
-%%metro line: with_sra | SRA-derived reads | #086008
-%%metro line: main | Analysis workflow | #0ee20e
-%%metro line: genabu | genabu | #0ee20e
-
-%%metro files: fastq_input | FASTQ | FASTQ input
-%%metro files: sra_input | SRA | SRA input
-%%metro files: paper_input | Paper | Paper accession
-%%metro files: genabu_table | csv | Gene abundance
-%%metro file: multiqc_report | MultiQC | MultiQC report
-
-%%metro grid: input | 0,0
-%%metro grid: preprocessing | 1,0
-%%metro grid: quantification | 2,0
-%%metro grid: reporting | 3,0
-
-graph LR
-
-    subgraph input [Input]
-
-        fastq_input[ ]
-        sra_input[ ]
-        paper_input[ ]
-
-        validator[Input Validator]
-        paper_accessions[Paper Accessions]
-        sra[SRA Input]
-
-        fastq_input -->|fastq| validator
-        sra_input -->|sra| validator
-        paper_input -->|paper| paper_accessions
-        validator -->|sra| sra
-        paper_accessions -->|paper| sra
-    end
-
-    subgraph preprocessing [Pre-processing]
-
-        falco[Falco]
-        cutadapt[Cutadapt]
-        falco_trim[Falco Trim]
-
-        falco -->|main| cutadapt
-        cutadapt -->|main| falco_trim
-    end
-
-    subgraph quantification [Quantification]
-
-        salmon[Salmon]
-        gene_abundance[Gene Abundance]
-
-        salmon -->|main| gene_abundance
-    end
-
-    subgraph reporting [Reporting quality control]
-
-        multiqc_report[ ]
-        genabu_table[ ]
-
-        multiqc[MultiQC]
-
-        multiqc -->|main| multiqc_report
-        gene_abundance -->|genabu| genabu_table
-    end
-
-
-    validator -->|fastq| falco
-    sra -->|with_sra| falco
-    falco_trim -->|main| salmon
-    gene_abundance -->|main, genabu| multiqc
+    gene_abundance -->|main| gene_name
