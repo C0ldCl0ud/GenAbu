@@ -151,7 +151,7 @@ workflow {
                 .map {
                     reference,
                     gene_names ->
-                    
+
                     gene_names
                 }
 
@@ -162,7 +162,7 @@ workflow {
             )
 
             GENENAME_MAPPING(
-                REFERENCE_PREPARATION.out.gene_names,
+                ch_gene_names,
                 ch_abundance_gtf,
                 GENE_ABUNDANCE.out.counts,
                 GENE_ABUNDANCE.out.abundance
