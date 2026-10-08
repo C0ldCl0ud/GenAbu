@@ -339,25 +339,30 @@ process GENE_ABUNDANCE {
 
         data[sample] = sample_data
 
-
-
-     # Preserve annotation order while restricting the output to genes
-     # actually represented in the Salmon gene-level results.
-
-    gene_order = [
-        gene_id
-        for gene_id in annotated_gene_order
-        if gene_id in expected_genes
-    ]
-
-
-
      # Make sample-column ordering deterministic regardless of
      # Nextflow scheduling.
 
     samples = sorted(
         samples
+    )        
+
+
+
+     # Sort genes by total TPM across all samples.
+     # Highly expressed genes are placed at the top.
+
+    gene_order = sorted(
+        expected_genes,
+        key=lambda gene_id: sum(
+            float(data[sample][gene_id]["TPM"])
+            for sample in samples
+        ),
+        reverse=True
     )
+
+
+
+
 
 
     def write_matrix(
