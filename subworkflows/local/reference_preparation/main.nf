@@ -348,19 +348,9 @@ workflow REFERENCE_PREPARATION {
 
     gtf =
         REFERENCE_RESOLVER.out.gtf
-            .map {
-                reference,
-                gtf ->
-                gtf
-            }
     
     gene_names =
         REFERENCE_RESOLVER.out.gene_names
-        .map {
-            reference,
-            gene_names ->
-            gene_names
-        }
 
     transcript_fasta =
         ch_transcripts

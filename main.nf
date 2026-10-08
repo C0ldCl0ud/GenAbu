@@ -147,6 +147,14 @@ workflow {
                     gtf_file
                 }
 
+            ch_gene_names = REFERENCE_PREPARATION.out.gene_names
+                .map {
+                    reference,
+                    gene_names ->
+                    
+                    gene_names
+                }
+
 
             GENE_ABUNDANCE(
                 ch_gene_quant_files,
@@ -155,7 +163,7 @@ workflow {
 
             GENENAME_MAPPING(
                 REFERENCE_PREPARATION.out.gene_names,
-                REFERENCE_PREPARATION.out.gtf,
+                ch_abundance_gtf,
                 GENE_ABUNDANCE.out.counts,
                 GENE_ABUNDANCE.out.abundance
             )
