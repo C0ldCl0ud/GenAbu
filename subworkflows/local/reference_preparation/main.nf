@@ -348,6 +348,11 @@ workflow REFERENCE_PREPARATION {
 
     gtf =
         REFERENCE_RESOLVER.out.gtf
+            .map {
+                reference,
+                gtf ->
+                gtf
+            }
     
     gene_names =
         REFERENCE_RESOLVER.out.gene_names
