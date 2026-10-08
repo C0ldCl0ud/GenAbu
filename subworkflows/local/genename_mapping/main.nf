@@ -45,9 +45,9 @@ process GENENAME_MAPPING_PROCESS {
     import re
 
 
-    /*
-     * Open plain-text or gzip-compressed files transparently.
-     */
+    
+    # Open plain-text or gzip-compressed files transparently.
+
     def open_text(filename):
 
         if filename.endswith(".gz"):
@@ -65,17 +65,14 @@ process GENENAME_MAPPING_PROCESS {
         )
 
 
-    /*
-     * ============================================================
-     * 1. Build the gene ID -> gene name mapping from NCBI.
-     * ============================================================
-     *
-     * The NCBI gene_info file starts with a header beginning with
-     * "#tax_id". The '#' must be removed from this header before
-     * passing the file to csv.DictReader.
-     *
-     * Comment lines beginning with '#' are otherwise ignored.
-     */
+
+    # Build the gene ID -> gene name mapping from NCBI.
+
+    #  The NCBI gene_info file starts with a header beginning with
+    #  "#tax_id". The '#' must be removed from this header before
+    #  passing the file to csv.DictReader.
+    #  Comment lines beginning with '#' are otherwise ignored.
+
     gene_names_file = "${gene_names}"
 
     ncbi_mapping = {}
@@ -135,19 +132,17 @@ process GENENAME_MAPPING_PROCESS {
             symbol = row["Symbol"].strip()
 
 
-            /*
-             * Ignore entries without a gene symbol.
-             */
+
+            #  Ignore entries without a gene symbol.
+
             if not symbol:
 
                 continue
 
 
-            /*
-             * ----------------------------------------------------
-             * Ensembl IDs stored in dbXrefs.
-             * ----------------------------------------------------
-             */
+
+            #  Ensembl IDs stored in dbXrefs.
+
             dbxrefs = row["dbXrefs"] or ""
 
 
@@ -164,11 +159,9 @@ process GENENAME_MAPPING_PROCESS {
                 ncbi_mapping[gene_id] = symbol
 
 
-            /*
-             * ----------------------------------------------------
-             * SGD IDs stored in dbXrefs.
-             * ----------------------------------------------------
-             */
+
+            #  SGD IDs stored in dbXrefs.
+
             sgd_match = re.search(
                 r'(?:^|\\|)SGD:([^|]+)',
                 dbxrefs
@@ -182,11 +175,9 @@ process GENENAME_MAPPING_PROCESS {
                 ncbi_mapping[gene_id] = symbol
 
 
-            /*
-             * ----------------------------------------------------
-             * Locus tags.
-             * ----------------------------------------------------
-             */
+
+            #  Locus tags.
+
             locus_tag = row["LocusTag"].strip()
 
 
@@ -200,27 +191,25 @@ process GENENAME_MAPPING_PROCESS {
     )
 
 
-    /*
-     * ============================================================
-     * 2. Build the gene ID -> gene name mapping from the GTF.
-     * ============================================================
-     *
-     * The transcript reference contains attributes such as:
-     *
-     *     gene_id "YDL246C";
-     *     gene_name "SOR2";
-     *
-     * Therefore the GTF provides a fallback when the gene ID cannot
-     * be resolved using the NCBI gene_info file.
-     */
+
+    #  Build the gene ID -> gene name mapping from the GTF.
+
+    #  The transcript reference contains attributes such as:
+
+    #      gene_id "YDL246C";
+    #      gene_name "SOR2";
+
+    #  Therefore the GTF provides a fallback when the gene ID cannot
+    #  be resolved using the NCBI gene_info file.
+
     gtf_file = "${gtf}"
 
     gtf_mapping = {}
 
 
-    /*
-     * Parse key-value pairs from the GTF attributes column.
-     */
+
+    #  Parse key-value pairs from the GTF attributes column.
+
     def parse_gtf_attributes(attributes):
 
         result = {}
@@ -244,9 +233,9 @@ process GENENAME_MAPPING_PROCESS {
 
         for line in handle:
 
-            /*
-             * Ignore GTF metadata/comment lines.
-             */
+
+            #  Ignore GTF metadata/comment lines.
+
             if line.startswith("#"):
 
                 continue
@@ -255,9 +244,9 @@ process GENENAME_MAPPING_PROCESS {
             fields = line.rstrip("\\n").split("\\t")
 
 
-            /*
-             * A valid GTF line contains nine columns.
-             */
+
+            #  A valid GTF line contains nine columns.
+
             if len(fields) != 9:
 
                 continue
@@ -272,10 +261,10 @@ process GENENAME_MAPPING_PROCESS {
             gene_name = attributes.get("gene_name")
 
 
-            /*
-             * Keep the first valid gene_name encountered for
-             * each gene ID.
-             */
+
+            #  Keep the first valid gene_name encountered for
+            #  each gene ID.
+
             if (
                 gene_id
                 and gene_name
@@ -290,21 +279,19 @@ process GENENAME_MAPPING_PROCESS {
     )
 
 
-    /*
-     * ============================================================
-     * 3. Add gene names to the output files.
-     * ============================================================
-     *
-     * Mapping priority:
-     *
-     *     NCBI
-     *       |
-     *       v
-     *     GTF
-     *       |
-     *       v
-     *     empty string
-     */
+
+    #  3. Add gene names to the output files.
+
+    #  Mapping priority:
+
+    #      NCBI
+    #        |
+    #        v
+    #      GTF
+    #        |
+    #        v
+    #      empty string
+
     def add_gene_names(
         input_file,
         output_file
@@ -337,10 +324,10 @@ process GENENAME_MAPPING_PROCESS {
             header = next(reader)
 
 
-            /*
-             * The input files must contain gene_id as their
-             * first column.
-             */
+
+            #  The input files must contain gene_id as their
+            #  first column.
+
             if (
                 not header
                 or header[0] != "gene_id"
@@ -352,9 +339,9 @@ process GENENAME_MAPPING_PROCESS {
                 )
 
 
-            /*
-             * Insert gene_name directly after gene_id.
-             */
+
+            #  Insert gene_name directly after gene_id.
+
             writer.writerow(
                 [
                     "gene_id",
@@ -374,34 +361,27 @@ process GENENAME_MAPPING_PROCESS {
                 gene_id = row[0]
 
 
-                /*
-                 * ------------------------------------------------
-                 * Priority 1: NCBI
-                 * ------------------------------------------------
-                 */
+                #  Priority 1: NCBI
+
                 if gene_id in ncbi_mapping:
 
                     gene_name = ncbi_mapping[gene_id]
 
 
-                /*
-                 * ------------------------------------------------
-                 * Priority 2: transcript reference GTF
-                 * ------------------------------------------------
-                 */
+
+                #  Priority 2: transcript reference GTF
+
                 elif gene_id in gtf_mapping:
 
                     gene_name = gtf_mapping[gene_id]
 
 
-                /*
-                 * ------------------------------------------------
-                 * Priority 3: no available gene name
-                 * ------------------------------------------------
-                 *
-                 * Do not fail the process if no mapping exists.
-                 * Instead, leave the gene_name field empty.
-                 */
+
+                #  Priority 3: no available gene name
+
+                #  Do not fail the process if no mapping exists.
+                #  Instead, leave the gene_name field empty.
+
                 else:
 
                     gene_name = ""
@@ -416,18 +396,18 @@ process GENENAME_MAPPING_PROCESS {
                 )
 
 
-    /*
-     * Apply the mapping to the gene count table.
-     */
+
+    #  Apply the mapping to the gene count table.
+
     add_gene_names(
         "gene_counts.tsv",
         "gene_counts_mapped.tsv"
     )
 
 
-    /*
-     * Apply the mapping to the gene abundance table.
-     */
+
+    #  Apply the mapping to the gene abundance table.
+
     add_gene_names(
         "gene_abundance.tsv",
         "gene_abundance_mapped.tsv"
@@ -436,9 +416,9 @@ process GENENAME_MAPPING_PROCESS {
 
     PY
 
-    /*
-     * Make sure both output files exist and are non-empty.
-     */
+
+    #  Make sure both output files exist and are non-empty.
+
     test -s gene_counts_mapped.tsv
     test -s gene_abundance_mapped.tsv
     """
