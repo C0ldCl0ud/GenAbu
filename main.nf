@@ -155,6 +155,7 @@ workflow {
 
             GENENAME_MAPPING(
                 REFERENCE_PREPARATION.out.gene_names,
+                REFERENCE_PREPARATION.out.gtf,
                 GENE_ABUNDANCE.out.counts,
                 GENE_ABUNDANCE.out.abundance
             )
