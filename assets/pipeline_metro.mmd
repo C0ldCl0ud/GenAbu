@@ -1,22 +1,26 @@
 %%metro title: GenAbu RNA-seq Analysis Pipeline
 %%metro style: nfcore
 
-%%metro line: fastq | FASTQ input | #a8cff0
-%%metro line: sra | SRA input | #0570b0
-%%metro line: paper | Paper accession | #e69f00
-%%metro line: with_sra | SRA-derived reads | #086008
+%%metro line: fastq | FASTQ input | #a16e02
+%%metro line: sra | SRA input | #df0b0b
+%%metro line: paper | Paper accession | #ffdd00
+%%metro line: with_sra | SRA-derived reads | #fdad00
 %%metro line: main | Analysis workflow | #0ee20e
+%%metro line: reference | Reference input | #0a790a
 
 %%metro files: fastq_input | FASTQ | FASTQ input
 %%metro files: sra_input | SRA | SRA input
 %%metro files: paper_input | Paper | Paper accession
 %%metro files: genabu_table | csv | Gene abundance
 %%metro file: multiqc_report | MultiQC | MultiQC report
+%%metro files: salmon_index | Salmon index | Salmon index
+%%metro files: reference_gtf | GTF | Reference annotation
 
 %%metro off_track: genabu_table
 
 %%metro grid: input | 0,0
 %%metro grid: preprocessing | 1,0
+%%metro grid: reference | 1,1
 %%metro grid: quantification | 2,0
 %%metro grid: reporting | 3,0
 %%metro grid: reporting_genabu | 3,1
@@ -56,6 +60,14 @@ graph LR
         gene_abundance[Gene Abundance]
 
         salmon -->|main| gene_abundance
+
+    end
+
+    subgraph reference [Reference preparation]
+
+        salmon_index[Salmon index]
+        reference_gtf[Reference gtf]
+
     end
 
     subgraph reporting [Reporting QC]
@@ -79,5 +91,7 @@ graph LR
     validator -->|fastq| falco
     sra -->|with_sra| falco
     falco_trim -->|main| salmon
+    salmon_index -->|reference| salmon
+    reference_gtf -->|reference| salmon
     gene_abundance -->|main| multiqc
     gene_abundance -->|main| gene_name
