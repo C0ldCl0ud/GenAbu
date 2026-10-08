@@ -33,13 +33,17 @@ graph LR
         sra_input[ ]
         paper_input[ ]
 
+        router[Input Router]
         validator[Input Validator]
         paper_accessions[Paper Accessions]
         sra[SRA Input]
 
-        fastq_input -->|fastq| validator
-        sra_input -->|sra| validator
-        paper_input -->|paper| paper_accessions
+        fastq_input -->|fastq| router
+        sra_input -->|sra| router
+        paper_input -->|paper| router
+        router -->|fastq| validator
+        router -->|sra| validator
+        router -->|paper| paper_accessions
         validator -->|sra| sra
         paper_accessions -->|paper| sra
     end
