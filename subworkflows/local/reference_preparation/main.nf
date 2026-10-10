@@ -24,25 +24,6 @@ def getReferenceCacheDir(cacheRoot, reference) {
 }
 
 
-def salmonIndexIsCached(indexDir) {
-
-    if (!indexDir.isDirectory()) {
-        return false
-    }
-
-    def requiredFiles = [
-        new File(indexDir, 'info.json'),
-        new File(indexDir, 'refseq.bin'),
-        new File(indexDir, 'refseq_offsets.json')
-    ]
-
-    return requiredFiles.every {
-        it.isFile() &&
-        it.length() > 0
-    }
-}
-
-
 workflow REFERENCE_PREPARATION {
 
     take:
@@ -86,8 +67,8 @@ workflow REFERENCE_PREPARATION {
             )
 
             def cached =
-                transcript_file.isFile() &&
-                transcript_file.length() > 0
+                !workflow.stubRun &&
+                ReferenceCache.usableGzip(transcript_file, '>ENSTUB000001\nACGTACGT\n')
 
             log.info(
                 cached
@@ -109,17 +90,12 @@ workflow REFERENCE_PREPARATION {
     /*
      * Cached transcriptomes bypass GffRead.
      */
-    ch_transcript_cached = ch_transcript_state
-        .filter {
-            reference,
-            genome_fasta,
-            gtf,
-            cache_dir,
-            transcript_path,
-            cached ->
+    ch_transcript_state.branch { entry ->
+        cached: entry[5]
+        missing: true
+    }.set { ch_transcript_branches }
 
-            cached
-        }
+    ch_transcript_cached = ch_transcript_branches.cached
         .map {
             reference,
             genome_fasta,
@@ -139,17 +115,7 @@ workflow REFERENCE_PREPARATION {
      * Missing transcriptomes are generated and published into the
      * persistent reference cache.
      */
-    ch_transcript_missing = ch_transcript_state
-        .filter {
-            reference,
-            genome_fasta,
-            gtf,
-            cache_dir,
-            transcript_path,
-            cached ->
-
-            !cached
-        }
+    ch_transcript_missing = ch_transcript_branches.missing
         .map {
             reference,
             genome_fasta,
@@ -252,7 +218,7 @@ workflow REFERENCE_PREPARATION {
             )
 
             def cached =
-                salmonIndexIsCached(
+                !workflow.stubRun && ReferenceCache.usableIndex(
                     index_dir
                 )
 
@@ -276,17 +242,12 @@ workflow REFERENCE_PREPARATION {
     /*
      * Cached indexes bypass SALMON_INDEX.
      */
-    ch_salmon_cached = ch_salmon_state
-        .filter {
-            reference,
-            transcript_fasta,
-            genome_fasta,
-            salmon_cache_dir,
-            index_path,
-            cached ->
+    ch_salmon_state.branch { entry ->
+        cached: entry[5]
+        missing: true
+    }.set { ch_salmon_branches }
 
-            cached
-        }
+    ch_salmon_cached = ch_salmon_branches.cached
         .map {
             reference,
             transcript_fasta,
@@ -305,17 +266,7 @@ workflow REFERENCE_PREPARATION {
     /*
      * Missing indexes are built and persisted.
      */
-    ch_salmon_missing = ch_salmon_state
-        .filter {
-            reference,
-            transcript_fasta,
-            genome_fasta,
-            salmon_cache_dir,
-            index_path,
-            cached ->
-
-            !cached
-        }
+    ch_salmon_missing = ch_salmon_branches.missing
         .map {
             reference,
             transcript_fasta,
@@ -366,4 +317,9 @@ workflow REFERENCE_PREPARATION {
 
     manifest =
         REFERENCE_RESOLVER.out.manifest
+
+    versions = REFERENCE_RESOLVER.out.versions.mix(
+        TRANSCRIPTOME_GENERATE.out.versions,
+        SALMON_INDEX.out.versions
+    )
 }

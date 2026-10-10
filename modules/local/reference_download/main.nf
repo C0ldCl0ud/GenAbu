@@ -15,6 +15,7 @@ process REFERENCE_DOWNLOAD {
         "${reference_cache}/${reference.source.toLowerCase()}/release-${reference.release}/${reference.id}-${reference.assembly}"
     },
         mode: 'copy',
+        enabled: !workflow.stubRun,
         overwrite: true
 
     input:
