@@ -1,13 +1,7 @@
 include { samplesheetToList } from 'plugin/nf-schema'
 
 
-def detectInputType(input) {
-
-    def header = file(input)
-        .readLines()
-        .first()
-        .split(',')
-        .collect { it.trim() }
+def detectInputType(header) {
 
     def hasFastq = header.contains('fastq_1') || header.contains('fastq_2')
     def hasSra   = header.contains('accession')
@@ -36,16 +30,10 @@ def detectInputType(input) {
 }
 
 
-def validateSamplesheetHeader(String samplesheet) {
+def validateSamplesheetHeader(header) {
 
     def expected_fastq = ['sample', 'fastq_1', 'fastq_2']
     def expected_sra   = ['sample', 'accession']
-
-    def header = file(samplesheet)
-        .readLines()
-        .first()
-        .split(',')
-        .collect { it.trim() }
 
     def has_Fastq_Columns = expected_fastq.every { header.contains(it) }
     def has_Sra_Columns   = expected_sra.every { header.contains(it) }
@@ -69,6 +57,15 @@ def validateSamplesheetHeader(String samplesheet) {
 }
 
 
+def validateSampleIds(rows) {
+    def duplicates = rows.countBy { it[0].id }.findAll { id, count -> count > 1 }.keySet()
+    if (duplicates) {
+        error "Duplicate sample IDs in samplesheet: ${duplicates.sort().join(', ')}"
+    }
+    return rows
+}
+
+
 workflow INPUT_VALIDATOR {
 
     take:
@@ -79,9 +76,12 @@ workflow INPUT_VALIDATOR {
     typed_samplesheets = input.map { samplesheet ->
 
         def samplesheet_path = samplesheet.toString()
-        def input_type = detectInputType(samplesheet_path)
+        def header = file(samplesheet_path).withReader { reader ->
+            (reader.readLine() ?: '').split(',').collect { it.trim() }
+        }
+        def input_type = detectInputType(header)
 
-        validateSamplesheetHeader(samplesheet_path)
+        validateSamplesheetHeader(header)
 
         log.info("${input_type} as starting point detected.")
         log.info("Input validation successful")
@@ -92,10 +92,10 @@ workflow INPUT_VALIDATOR {
     ch_sra = typed_samplesheets
         .filter { input_type, samplesheet -> input_type == 'sra' }
         .flatMap { input_type, samplesheet ->
-            samplesheetToList(
+            validateSampleIds(samplesheetToList(
                 samplesheet,
                 "${projectDir}/assets/schema_input_sra.json"
-            )
+            ))
         }
 
     ch_fastq = typed_samplesheets
@@ -114,10 +114,10 @@ workflow INPUT_VALIDATOR {
                     projectDir.toString()
                 )
             }
-            samplesheetToList(
+            validateSampleIds(samplesheetToList(
                 resolved_sheet.toString(),
                 "${projectDir}/assets/schema_input.json"
-            )
+            ))
         }
         .map { meta, fastq_1, fastq_2 ->
 

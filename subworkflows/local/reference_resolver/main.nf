@@ -145,10 +145,9 @@ workflow REFERENCE_RESOLVER {
             )
 
             def cached =
-                genome_file.isFile() &&
-                genome_file.length() > 0 &&
-                gtf_file.isFile() &&
-                gtf_file.length() > 0 &&
+                !workflow.stubRun &&
+                ReferenceCache.usableGzip(genome_file, '>chr1\nACGTACGT\n') &&
+                ReferenceCache.usableGzip(gtf_file, 'chr1\tGenAbu\tgene\t1\t8\t.\t+\t.\tgene_id "gene1";\n') &&
                 manifest_file.isFile() &&
                 manifest_file.length() > 0
 
@@ -178,17 +177,12 @@ workflow REFERENCE_RESOLVER {
     /*
      * Cached references bypass the download process entirely.
      */
-    ch_cached = ch_reference_state
-        .filter {
-            reference,
-            cache_root,
-            cached,
-            genome_path,
-            gtf_path,
-            manifest_path ->
+    ch_reference_state.branch { entry ->
+        cached: entry[2]
+        missing: true
+    }.set { ch_reference_branches }
 
-            cached
-        }
+    ch_cached = ch_reference_branches.cached
         .map {
             reference,
             cache_root,
@@ -210,17 +204,7 @@ workflow REFERENCE_RESOLVER {
      * Cache misses are downloaded once and published into the
      * persistent reference cache.
      */
-    ch_missing = ch_reference_state
-        .filter {
-            reference,
-            cache_root,
-            cached,
-            genome_path,
-            gtf_path,
-            manifest_path ->
-
-            !cached
-        }
+    ch_missing = ch_reference_branches.missing
         .map {
             reference,
             cache_root,
@@ -291,4 +275,5 @@ workflow REFERENCE_RESOLVER {
     genome_fasta  = ch_genome
     gtf           = ch_gtf
     manifest      = ch_manifest
+    versions      = REFERENCE_DOWNLOAD.out.versions
 }

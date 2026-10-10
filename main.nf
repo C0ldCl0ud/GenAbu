@@ -6,9 +6,8 @@ include { REFERENCE_PREPARATION } from './subworkflows/local/reference_preparati
 include { QUANTIFICATION }        from './subworkflows/local/quantification/main'
 
 include { FALCO }                 from './modules/local/falco/main'
-include { FALCO_TRIM }            from './modules/local/falco_trim/main'
+include { FALCO as FALCO_TRIM }    from './modules/local/falco/main'
 include { CUTADAPT }              from './modules/local/cutadapt/main'
-include { SALMON_QUANT }          from './modules/local/salmon_quant/main'
 include { MULTIQC }               from './modules/local/multiqc/main'
 include { GENE_ABUNDANCE }        from './modules/local/gene_abundance/main'
 
@@ -29,6 +28,8 @@ workflow {
         params.max_runs
     )
 
+
+    ch_versions = PAPER_ACCESSIONS.out.versions
 
     if (params.resolve_only) {
 
@@ -55,6 +56,8 @@ workflow {
                 ch_genome,
                 ch_reference_cache
             )
+
+            ch_versions = ch_versions.mix(REFERENCE_PREPARATION.out.versions)
         }
 
 
@@ -152,6 +155,11 @@ workflow {
                 ch_abundance_gtf
             )
 
+            ch_versions = ch_versions.mix(
+                QUANTIFICATION.out.versions,
+                GENE_ABUNDANCE.out.versions
+            )
+
         }
 
         /*
@@ -190,14 +198,12 @@ workflow {
                 ch_cutadapt_multiqc,
                 ch_falco_trim_multiqc,
             )
-            .collect()
 
         if (params.genome) {
             ch_multiqc_files = ch_multiqc_files
                 .concat(
                     ch_salmon_multiqc
                 )
-                .collect()
         }
 
         ch_multiqc_config = Channel.value(
@@ -205,8 +211,21 @@ workflow {
         )
 
         MULTIQC(
-            ch_multiqc_files,
+            ch_multiqc_files.collect(),
             ch_multiqc_config
         )
+
+        ch_versions = ch_versions.mix(CUTADAPT.out.versions, MULTIQC.out.versions)
     }
+
+    ch_versions
+        .map { it.text.trim() }
+        .mix(Channel.value("\"Workflow\":\n    nextflow: \"${workflow.nextflow.version}\""))
+        .unique()
+        .collectFile(
+            name: 'software_versions.yml',
+            storeDir: "${launchDir}/results/pipeline_info",
+            sort: true,
+            newLine: true
+        )
 }
