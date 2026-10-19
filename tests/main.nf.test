@@ -280,13 +280,14 @@ nextflow_pipeline {
              *
              * Quantification:
              *
+             *   GTF_PREPARE
              *   SALMON_QUANT
              *   GENE_ABUNDANCE
              *
-             * Total = 9
+             * Total = 10
              */
-            assert workflow.trace.tasks().size() == 9
-            assert workflow.trace.succeeded().size() == 9
+            assert workflow.trace.tasks().size() == 10
+            assert workflow.trace.succeeded().size() == 10
         }
     }
 }
