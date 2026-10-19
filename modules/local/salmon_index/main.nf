@@ -9,6 +9,7 @@ process SALMON_INDEX {
         salmon_cache_dir
     },
         mode: 'copy',
+        enabled: !workflow.stubRun,
         overwrite: true,
         pattern: 'salmon_index'
 

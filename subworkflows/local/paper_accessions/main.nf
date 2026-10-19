@@ -41,4 +41,5 @@ workflow PAPER_ACCESSIONS {
     unresolved = ACCESSION_RESOLVER.out.unresolved
     samplesheet = ACCESSION_RESOLVER.out.samplesheet
     sra = ch_sra
+    versions = ACCESSION_RESOLVER.out.versions
 }

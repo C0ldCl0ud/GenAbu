@@ -9,6 +9,7 @@ process TRANSCRIPTOME_GENERATE {
         transcript_cache_dir
     },
         mode: 'copy',
+        enabled: !workflow.stubRun,
         overwrite: true,
         pattern: 'transcripts.fa.gz'
 

@@ -1,3 +1,4 @@
+include { GTF_PREPARE } from '../../../modules/local/gtf_prepare/main'
 include { SALMON_QUANT } from '../../../modules/local/salmon_quant/main'
 
 
@@ -27,7 +28,9 @@ workflow QUANTIFICATION {
         }
 
 
-    ch_gtf_keyed = gtf
+    GTF_PREPARE(gtf)
+
+    ch_gtf_keyed = GTF_PREPARE.out.gtf
         .map {
             reference,
             gtf_file ->

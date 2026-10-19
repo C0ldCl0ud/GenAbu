@@ -14,6 +14,7 @@ process FALCO {
     tuple val(meta), path("${meta.id}*_summary.txt"),        emit: summary
 
     script:
+    def report_suffix = task.ext.report_suffix ?: ''
     def read_list = reads instanceof List ? reads : [reads]
 
     if (!(read_list.size() in [1, 2])) {
@@ -42,13 +43,13 @@ process FALCO {
 
         """
         mv "falco_out/${falco_dir}/fastqc_data.txt" \
-            "${meta.id}${suffix}_fastqc_data.txt"
+            "${meta.id}${suffix}${report_suffix}_fastqc_data.txt"
 
         mv "falco_out/${falco_dir}/fastqc_report.html" \
-            "${meta.id}${suffix}_fastqc_report.html"
+            "${meta.id}${suffix}${report_suffix}_fastqc_report.html"
 
         mv "falco_out/${falco_dir}/summary.txt" \
-            "${meta.id}${suffix}_summary.txt"
+            "${meta.id}${suffix}${report_suffix}_summary.txt"
         """
     }.join("\n")
 
@@ -66,6 +67,7 @@ process FALCO {
     """
 
     stub:
+    def report_suffix = task.ext.report_suffix ?: ''
     def read_list = reads instanceof List ? reads : [reads]
 
     if (!(read_list.size() in [1, 2])) {
@@ -85,9 +87,9 @@ process FALCO {
             : "_R${index + 1}"
 
         """
-        touch "${meta.id}${suffix}_fastqc_data.txt"
-        touch "${meta.id}${suffix}_fastqc_report.html"
-        touch "${meta.id}${suffix}_summary.txt"
+        touch "${meta.id}${suffix}${report_suffix}_fastqc_data.txt"
+        touch "${meta.id}${suffix}${report_suffix}_fastqc_report.html"
+        touch "${meta.id}${suffix}${report_suffix}_summary.txt"
         """
     }.join("\n")
 

@@ -62,31 +62,19 @@ process SALMON_QUANT {
     }
 
 
-    /*
-     * Salmon's gene-map parser receives an ordinary GTF file.
-     * References from REFERENCE_PREPARATION are normally gzipped,
-     * so normalise them here.
-     */
-    def gtf_command = gtf.name.endsWith('.gz')
-        ? "gunzip -c ${gtf} > genes.input.gtf"
-        : "cp ${gtf} genes.input.gtf"
-
-
     def read_args = expected_single_end
         ? "-r \"${read_list[0]}\""
         : "-1 \"${read_list[0]}\" -2 \"${read_list[1]}\""
 
 
     """
-    ${gtf_command}
-
-    test -s genes.input.gtf
+    test -s "${gtf}"
 
     salmon quant \
         --index "${index}" \
         --libType A \
         ${read_args} \
-        --geneMap genes.input.gtf \
+        --geneMap "${gtf}" \
         --validateMappings \
         --threads ${task.cpus} \
         --output "${meta.id}.salmon"

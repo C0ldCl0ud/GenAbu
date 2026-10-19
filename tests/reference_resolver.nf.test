@@ -79,19 +79,16 @@ def createCachedReference = {
     referenceDir.mkdirs()
 
     writeGzip(
-        new File(
-            referenceDir,
-            "genome.fa.gz"
-        ),
-        ">chr1\nACGTACGT\n"
+        new File(referenceDir, "genome.fa.gz"),
+        """>chr1
+        ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
+        """.stripIndent()
     )
 
     writeGzip(
-        new File(
-            referenceDir,
-            "genes.gtf.gz"
-        ),
-        "chr1\tGenAbu\tgene\t1\t8\t.\t+\t.\tgene_id \"gene1\";\n"
+        new File(referenceDir, "genes.gtf.gz"),
+        """chr1\tGenAbu\tgene\t1\t48\t.\t+\t.\tgene_id "gene1";
+        """.stripIndent()
     )
 
     new File(
