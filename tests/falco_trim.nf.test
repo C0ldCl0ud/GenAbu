@@ -63,8 +63,9 @@ nextflow_process {
     name "Test FALCO_TRIM"
     tag "ci"
 
-    script "../modules/local/falco_trim/main.nf"
-    process "FALCO_TRIM"
+    script "../modules/local/falco/main.nf"
+    process "FALCO"
+    config "tests/config/falco_trim.config"
 
     options "-stub-run"
 
