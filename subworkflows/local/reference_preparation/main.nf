@@ -67,7 +67,6 @@ workflow REFERENCE_PREPARATION {
             )
 
             def cached =
-                !workflow.stubRun &&
                 ReferenceCache.usableGzip(transcript_file, '>ENSTUB000001\nACGTACGT\n')
 
             log.info(
@@ -218,7 +217,7 @@ workflow REFERENCE_PREPARATION {
             )
 
             def cached =
-                !workflow.stubRun && ReferenceCache.usableIndex(
+                ReferenceCache.usableIndex(
                     index_dir
                 )
 

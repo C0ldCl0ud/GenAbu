@@ -145,7 +145,6 @@ workflow REFERENCE_RESOLVER {
             )
 
             def cached =
-                !workflow.stubRun &&
                 ReferenceCache.usableGzip(genome_file, '>chr1\nACGTACGT\n') &&
                 ReferenceCache.usableGzip(gtf_file, 'chr1\tGenAbu\tgene\t1\t8\t.\t+\t.\tgene_id "gene1";\n') &&
                 manifest_file.isFile() &&
