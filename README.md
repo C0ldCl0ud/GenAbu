@@ -10,6 +10,7 @@ The pipeline was developed as a computational workflows course project. It aims 
 
 ## Contents
 
+- [Pipeline overview](#Pipeline-overview)
 - [Workflow](#workflow)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
@@ -19,6 +20,14 @@ The pipeline was developed as a computational workflows course project. It aims 
 - [Reference genomes and caching](#reference-genomes-and-caching)
 - [Testing](#testing)
 - [Limitations](#limitations)
+
+## Pipeline overview
+
+![GenAbu pipeline overview](assets/pipeline_metro.svg)
+
+The diagram summarizes the main processing routes.
+Reference preparation and Salmon quantification are only
+performed when `--genome` is specified.
 
 ## Workflow
 
