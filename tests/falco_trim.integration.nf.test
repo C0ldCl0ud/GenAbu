@@ -112,8 +112,9 @@ nextflow_process {
     name "Test FALCO_TRIM integration"
     tag "integration"
 
-    script "../modules/local/falco_trim/main.nf"
-    process "FALCO_TRIM"
+    script "../modules/local/falco/main.nf"
+    process "FALCO"
+    config "tests/config/falco_trim.config"
 
 
     test("Should run Falco on real paired trimmed FASTQ files") {
