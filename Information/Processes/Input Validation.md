@@ -1,11 +1,17 @@
 ---
 type: process
-input: path
+input:
+    - input
 output:
+    - sra
+    - fastq
 image:
 parent:
 child:
 tools:
+    - Nextflow
+    - nf-schema
+    - Groovy
 ---
 # Input Validation
 
