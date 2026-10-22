@@ -14,8 +14,8 @@ def readPdfSignature(input_path) {
 
 /*
  * Route the single top-level --input file to the appropriate downstream
- * workflow. Detailed CSV and PDF validation remains the responsibility of
- * INPUT_VALIDATOR and PAPER_INPUT, respectively.
+ * workflow. Detailed CSV validation is handled by INPUT_VALIDATOR, while
+ * PDF inputs are processed by PAPER_ACCESSIONS.
  */
 workflow INPUT_ROUTER {
 
