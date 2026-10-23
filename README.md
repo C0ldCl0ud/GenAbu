@@ -60,12 +60,73 @@ The PDF entry point also supports an accession-resolution-only mode that stops b
 
 ## Requirements
 
-- A working **Nextflow** installation and the Java runtime required by that Nextflow version.
-- **Docker** to run the pipeline's containerized tools with `-profile docker`.
+- **Conda or Miniforge** to install the provided Nextflow environment.
+- **Docker** to run containerized pipeline tools.
 - Internet access for first-time container pulls, SRA downloads, PDF accession lookup, and reference downloads.
 - Sufficient disk space for reads, references, intermediate files, and the Salmon index. Requirements depend on the dataset and genome.
 
 The CI workflow currently uses **Nextflow 26.04.7** on Ubuntu 24.04 and **nf-test 0.9.5**. These are useful versions to reproduce the automated test environment.
+
+## Installation
+
+GenAbu requires Nextflow to orchestrate the workflow and Docker to run the analysis tools. Nextflow can be installed in a dedicated Conda environment using the provided `environment.yml` file.
+
+### Prerequisites
+
+- **Git** to clone the repository.
+- **Conda or Miniforge** to manage the Nextflow environment. See the [Miniforge installation guide](https://github.com/conda-forge/miniforge).
+- **Docker** to execute containerized analysis tools. Follow the [official Docker installation guide](https://docs.docker.com/get-docker/).
+
+On Windows, we recommend running GenAbu inside **WSL2 (Ubuntu)** with Docker Desktop's WSL2 integration enabled.
+
+### Clone the repository
+
+```bash
+git clone https://github.com/C0ldCl0ud/GenAbu.git
+cd GenAbu
+```
+
+### Create the Conda environment
+
+Create the environment from the provided configuration:
+
+```bash
+conda env create -f environment.yml
+conda activate genabu
+```
+
+The environment installs Nextflow 26.04.7 and its required dependencies, including Java. The Nextflow version matches the version used in the project's continuous integration (CI) tests.
+
+Verify that Nextflow is available:
+
+```bash
+nextflow -version
+```
+
+### Verify Docker
+
+Docker must be installed and running independently of the Conda environment. Check that Docker is accessible:
+
+```bash
+docker --version
+docker info
+```
+
+### Run GenAbu
+
+With the `genabu` Conda environment activated and Docker running, execute the included test dataset:
+
+```bash
+nextflow run . -profile test,docker
+```
+
+This performs a real pipeline execution, including downloading required references and containers if they are not already cached. For a lightweight workflow smoke test without executing the analysis tools, use:
+
+```bash
+nextflow run . -profile test -stub-run
+```
+
+For additional examples and supported input formats, see [Quick start](#quick-start) and [Input formats](#input-formats).
 
 ## Quick start
 
