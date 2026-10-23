@@ -60,8 +60,8 @@ The PDF entry point also supports an accession-resolution-only mode that stops b
 
 ## Requirements
 
-- A working **Nextflow** installation and the Java runtime required by that Nextflow version.
-- **Docker** to run the pipeline's containerized tools with `-profile docker`.
+- **Conda or Miniforge** to install the provided Nextflow environment.
+- **Docker** to run containerized pipeline tools.
 - Internet access for first-time container pulls, SRA downloads, PDF accession lookup, and reference downloads.
 - Sufficient disk space for reads, references, intermediate files, and the Salmon index. Requirements depend on the dataset and genome.
 
