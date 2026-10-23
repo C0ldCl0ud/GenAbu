@@ -1,0 +1,6 @@
+name: genabu
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - nextflow=26.04.7
